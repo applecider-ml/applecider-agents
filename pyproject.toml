@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "applecider-agents"
+version = "0.2.0"
+description = "Triage agents for the AppleCiDEr transient models: deterministic tools, a typed report, an LLM loop, one MCP server, a SkyPortal gate"
+requires-python = ">=3.10"
+dependencies = ["anthropic>=1.6", "pydantic>=2", "numpy", "pandas"]
+
+[project.optional-dependencies]
+flare = ["flare-transients[skyportal]"]
+mcp = ["mcp>=2"]
+all = ["applecider-agents[flare,mcp]"]
+
+[project.scripts]
+applecider-agents = "applecider_agents.cli:main"
+
+[tool.setuptools]
+packages = ["applecider_agents", "applecider_agents.core", "applecider_agents.flare"]

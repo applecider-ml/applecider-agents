@@ -1,0 +1,12 @@
+services:
+  flare-agent:
+    build: .
+    env_file: .env
+    volumes:
+      - applecider-agents-logs:/var/log/applecider-agents
+      - applecider-agents-cache:/var/lib/applecider-agents
+    restart: unless-stopped
+    # the poller runs once per invocation; schedule it with cron on the host or replace CMD with a loop
+volumes:
+  applecider-agents-logs:
+  applecider-agents-cache:
