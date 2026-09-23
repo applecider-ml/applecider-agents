@@ -1,4 +1,4 @@
-# applecider-agents
+# Agents for AppleCiDEr
 
 Triage agents for the [AppleCiDEr](https://github.com/applecider-ml) transient models. The first module wraps
 [FLARE](https://github.com/applecider-ml/flare) (photometric classification, conformal sets, anomaly energy);
