@@ -27,7 +27,8 @@ class SkyPortal:
     def comment(self, obj_id, text, group_ids=None):
         return self._req("POST", f"/api/sources/{obj_id}/comments", dict(text=text, group_ids=group_ids or C.SKYPORTAL_GROUP_IDS or None))
 
-    def annotation(self, obj_id, data: dict, origin="FLARE", group_ids=None):
+    # own origin: SkyPortal keeps one annotation per origin, and "FLARE" belongs to the FLARE analysis service
+    def annotation(self, obj_id, data: dict, origin="FLARE-agent", group_ids=None):
         return self._req("POST", f"/api/sources/{obj_id}/annotations", dict(origin=origin, data=data, group_ids=group_ids or C.SKYPORTAL_GROUP_IDS or None))
 
 
