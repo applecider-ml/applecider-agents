@@ -1,7 +1,7 @@
 # Agents for AppleCiDEr
 
 Triage agents for the [AppleCiDEr](https://github.com/applecider-ml) transient models. The first module wraps
-[FLARE](https://github.com/applecider-ml/flare) (photometric classification, conformal sets, anomaly energy);
+[FLARE](https://github.com/applecider-ml/flare) (photometric classification, conformal sets, blind consensus anomaly alarm);
 ASTRANet (spectra) is the next folder.
 
 Agents are kept separate from the model packages on purpose. A model repo stays a dependency-light,
@@ -38,14 +38,16 @@ so the same commands run in a container or next to SkyPortal.
 FLARE already runs as an analysis service (OSG plugin) and writes a classification and an annotation set
 on the source page. The agent adds the layer above the numbers:
 
-1. **Reads the whole object, not one score.** Classifier probabilities and the 90% set, credibility,
-   anomaly energy against a magnitude-matched false-alarm threshold, host offset and photo-z, Gaia
+1. **Reads the whole object, not one score.** Classifier probabilities and the 90% set from the model
+   matched to the light curve's phase (day 5, 10, 20 or full curve), credibility, the blind consensus
+   anomaly alarm at 1%, 5% and 10% false-alarm rates, host offset and photo-z, Gaia
    astrometry, WISE colour, the years-long activity span of the full photometric history, the BTS and TNS records. One call,
    one verdict: ordinary / needs_spectrum / anomaly_review / likely_stellar_or_agn /
    already_classified / insufficient_data, with a priority 0-3 and one fact per tool as evidence.
 2. **Knows the pitfalls the paper measured.** "SLSN in the set" is a true SLSN 21% of the time,
    "argmax SLSN" 64%, a photo-z luminosity below -21 mag alone 1%; a nuclear object active for three
-   years is an AGN, not a transient; fainter curves have higher energy without being anomalous. The
+   years is an AGN, not a transient; the anomaly alarm of an early light curve is calibrated against known
+   objects with a similar number of detections, and the 1% alarm counts only from 8 detections. The
    reading guide travels with every `flare_triage` result, so SkyPortal's own assistant applies it.
 3. **Answers questions, not just alerts.** Through MCP the assistant can be asked "why did FLARE call
    this SN CC?", "is this worth a spectrum tonight?", "which of tonight's twelve candidates are most likely

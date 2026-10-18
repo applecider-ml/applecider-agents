@@ -19,6 +19,8 @@ def test_object_tools():
 def test_flare_tools_and_verdict():
     c = T.flare_classify.call(dict(obj_id=TEST, horizon_days=100.0)); assert abs(sum(c["probabilities"].values()) - 1) < 0.02
     a = T.flare_anomaly.call(dict(obj_id=TEST, horizon_days=100.0)); assert a["energy_percentile"] is not None
+    c10 = T.flare_classify.call(dict(obj_id=TEST, horizon_days=10.0)); assert c10["model"].startswith("bts6_h")
+    a10 = T.flare_anomaly.call(dict(obj_id=TEST, horizon_days=10.0)); assert a10["alarm_score"] == "consensus" and "1%" in a10["alarms"]
     rep = AGENT.triage(TEST, 100.0); assert isinstance(rep, Report) and rep.comment().startswith("[FLARE]")
     assert registry.get("flare").name == "flare" and AGENT.triage(KNOWN, 100.0).verdict == "already_classified"
 

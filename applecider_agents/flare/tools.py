@@ -1,25 +1,15 @@
-"""FLARE-specific tools: the hierarchical classifier, the anomaly energy, and an
-inline-photometry entry for clients that already hold the light curve."""
+"""FLARE-specific tools: the phase-matched classifier, the blind consensus anomaly
+alarm, and an inline-photometry entry for clients that already hold the light curve."""
 from __future__ import annotations
 import math
-import numpy as np, pandas as pd
 from anthropic.lib.tools import beta_tool
 from ..core import config as C, data as DATA
 from flare import data as D
-from flare.config import BTS6
-from flare.skyportal import feature_frame
+from flare.skyportal import feature_frame, classify, phase_horizon
 
-_CLF = None
 _CACHE: dict = {}
+_RESULTS: dict = {}
 BAND = {0: "g", 1: "r", 2: "i"}
-
-
-def clf():
-    global _CLF
-    if _CLF is None:
-        from flare.hierarchical import HierarchicalFlare
-        _CLF = HierarchicalFlare.from_pretrained(BTS6)
-    return _CLF
 
 
 def _f(x, nd=3):
@@ -38,66 +28,65 @@ def prepared(obj_id: str, horizon_days: float = 100.0):
         peak0 = float(23.9 - 2.5 * ev[:, D.COL["logflux"]].max())
         ctx = DATA.context(obj_id, peak_mag=peak0)
         X, peak, _ = feature_frame(ev, {k: v for k, v in ctx.items() if not k.startswith("_")}, None)
-        X = X.reindex(columns=clf().feature_names)
         _CACHE[key] = (ev, ctx, X, peak)
     return _CACHE[key]
 
 
+def _flare(obj_id: str, horizon_days: float = 100.0) -> dict:
+    """FLARE's classification and anomaly alarm (flare.skyportal.classify) from the model matched to
+    the span of the detections inside the horizon (flare.skyportal.phase_horizon); cached per process."""
+    key = (obj_id, float(horizon_days))
+    if key not in _RESULTS:
+        ev, _, X, _ = prepared(obj_id, horizon_days)
+        span = float(ev[:, D.COL["dt"]].max() - ev[:, D.COL["dt"]].min())
+        _RESULTS[key] = classify(X, C.BASE_RATE, horizon=phase_horizon(span))
+    return _RESULTS[key]
+
+
 @beta_tool
 def flare_classify(obj_id: str, horizon_days: float = 100.0) -> dict:
-    """Run the FLARE hierarchical classifier (six classes: SN_Ia, SN_CC, SLSN,
-    AGN, TDE, CV) on the object's light curve plus its catalogue context.
-    Returns class probabilities, the argmax, Mondrian conformal p-values, the
-    90% prediction set, credibility (largest p-value; low means the object
-    matches no class well) and whether the set excludes its own argmax."""
+    """Run FLARE (six classes: SN_Ia, SN_CC, SLSN, AGN, TDE, CV) on the object's
+    light curve plus its catalogue context, with the model matched to its phase:
+    the one trained at day 5, 10 or 20 (bts6_h5/h10/h20, chosen by the span of
+    the detections) or the full-curve bts6. Returns the model, class
+    probabilities with their Venn-Abers intervals, the argmax, Mondrian
+    conformal p-values, the 90% prediction set, credibility (largest p-value;
+    low means the object matches no class well), confidence, whether the set
+    excludes its own argmax, and the measured coverage of the predicted class."""
     try:
-        _, ctx, X, _ = prepared(obj_id, horizon_days)
-        c = clf()
-        P = c.predict_proba(X)[0]; pv = c.p_values(X)[0]; s = c.prediction_sets(X, alpha=BTS6.alpha)[0]
-        conf = c.conformal_report(X)[0]
-        lab = BTS6.classes[int(P.argmax())]
-        return dict(obj_id=obj_id, predicted=lab, probabilities={k: _f(v) for k, v in zip(BTS6.classes, P)},
-                    prediction_set=list(s), alpha=BTS6.alpha, p_values={k: _f(v) for k, v in zip(BTS6.classes, pv)},
-                    credibility=_f(pv.max()), confidence=_f(1 - np.sort(pv)[-2]) if len(pv) > 1 else None,
-                    argmax_excluded_from_set=lab not in s,
-                    empirical_coverage_of_predicted_class=_f(conf.get("empirical_coverage")),
+        _, ctx, _, _ = prepared(obj_id, horizon_days); cl = _flare(obj_id, horizon_days)
+        return dict(obj_id=obj_id, model=cl["model"], model_horizon_days=cl["model_horizon_days"], predicted=cl["predicted"],
+                    probabilities={k: _f(v, 4) for k, v in cl["probabilities"].items()}, probability_intervals=cl["probability_intervals"],
+                    prediction_set=cl["prediction_set"], alpha=cl["alpha"], p_values={k: _f(v, 4) for k, v in cl["p_values"].items()},
+                    credibility=_f(cl["credibility"], 4), confidence=_f(cl["confidence"], 4),
+                    argmax_excluded_from_set=cl["argmax_excluded_from_set"],
+                    coverage_of_predicted=cl["coverage_of_predicted"], coverage_of_predicted_err=cl["coverage_of_predicted_err"],
                     context_used=sorted(k for k in ctx if not k.startswith("_")), context_source=ctx.get("_source"),
-                    note="Probabilities are out-of-fold calibrated on the BTS benchmark; the set carries the 90% per-class guarantee.")
+                    note="Probabilities are out-of-fold calibrated on the BTS benchmark; the set carries the 90% per-class guarantee. Early models give wider sets by design.")
     except Exception as e:
         return dict(error=f"{type(e).__name__}: {e}")
 
 
-def _magnitude_matched_threshold(peakmag):
-    """99th percentile of energy among classified test objects within +-0.25 mag (None if too few)."""
-    if peakmag is None or C.TEST_SCORES is None or not C.TEST_SCORES.exists():
-        return None, 0
-    t = pd.read_csv(C.TEST_SCORES)
-    sel = t[(t.peakmag >= peakmag - 0.25) & (t.peakmag < peakmag + 0.25)].energy
-    return (float(np.percentile(sel, 99)), int(len(sel))) if len(sel) >= 100 else (None, int(len(sel)))
+ALARM_KEYS = ("alarm_score", "consensus", "alarm_p", "alarms", "alarm_far", "calibrated", "calibration")
 
 
 @beta_tool
 def flare_anomaly(obj_id: str, horizon_days: float = 100.0) -> dict:
-    """Blind anomaly score from FLARE: the energy of the classifier's logits in
-    the anomaly feature space, its percentile among known-class objects, a
-    distribution-free novelty p-value, the likelihood ratio and P(anomaly) at
-    the configured base rate. Also gives the 1% false-alarm thresholds, both
-    the shipped one and one recalibrated on classified objects of matched
-    brightness (fainter, noisier curves have higher energy for reasons that
-    are not physics)."""
+    """Blind anomaly alarm from FLARE, from the same phase-matched model as
+    flare_classify: the consensus of 14 LUNA scorers (alarm_score 'consensus';
+    'energy' only when LUNA is missing), its conformal p-value alarm_p, the
+    decision at 1%, 5% and 10% false-alarm rates (alarms) and alarm_far, the
+    smallest rate that flags the object (None when none does). calibrated says
+    whether the alarm is calibrated at the model's phase. The energy, its
+    percentile, the novelty p-value, the likelihood ratio and P(anomaly) at the
+    configured base rate are returned as diagnostics."""
     try:
-        ev, _, X, peak = prepared(obj_id, horizon_days)
-        c = clf(); a = c.anomaly_probability(X, base_rate=C.BASE_RATE)[0]
-        known = np.asarray(c.anomaly_cal["known_energies"], float)
-        thr = float(np.percentile(known, 99))
-        thr_m, n_m = _magnitude_matched_threshold(peak)
-        return dict(obj_id=obj_id, energy=_f(a["energy"]), energy_percentile=_f(a.get("energy_percentile"), 1),
-                    novelty_p=_f(a.get("novelty_p"), 4), likelihood_ratio=_f(a["likelihood_ratio"], 2),
-                    p_anomaly_at_base_rate=_f(a["p_anomaly"]), base_rate=C.BASE_RATE,
-                    shipped_threshold_1pct_far=_f(thr), above_shipped_threshold=bool(a["energy"] > thr),
-                    magnitude_matched_threshold_1pct_far=_f(thr_m), n_matched_known=n_m,
-                    above_matched_threshold=None if thr_m is None else bool(a["energy"] > thr_m),
-                    note="The base rate is the benchmark's (3.3%); a raw alert stream is far poorer in rarities, so quote the likelihood ratio when the prior is unknown.")
+        cl = _flare(obj_id, horizon_days); a = cl["anomaly"]
+        out = dict(obj_id=obj_id, model=cl["model"], **{k: a.get(k) for k in ALARM_KEYS})
+        out.update({k: (_f(v, 4) if isinstance(v, float) else v) for k, v in a.items() if k not in ALARM_KEYS})
+        out["note"] = ("The 1% alarm is the operating point and counts only from 8 detections; the energy fields are diagnostics. "
+                       "The base rate is the benchmark's (3.3%); a raw alert stream is far poorer in rarities, so quote the likelihood ratio when the prior is unknown.")
+        return out
     except Exception as e:
         return dict(error=f"{type(e).__name__}: {e}")
 
@@ -107,7 +96,7 @@ def flare_anomaly(obj_id: str, horizon_days: float = 100.0) -> dict:
 def flare_analyze_photometry(mjd: list[float], filter: list[str], mag: list[float], magerr: list[float], obj_id: str = "obj",
                              redshift: float | None = None, ra: float | None = None, dec: float | None = None,
                              horizon_days: float = 100.0, context: str = "live") -> dict:
-    """Run FLARE directly on photometry the caller already holds (e.g. SkyPortal's get_photometry): lists of mjd, filter (ztfg/ztfr/ztfi), mag, magerr; optional redshift, ra, dec. Returns the FLARE analysis-service result (classification, anomaly, context, rule verdict, SkyPortal-shaped annotations and classification)."""
+    """Run FLARE directly on photometry the caller already holds (e.g. SkyPortal's get_photometry): lists of mjd, filter (ztfg/ztfr/ztfi), mag, magerr; optional redshift, ra, dec. Returns the FLARE analysis-service result (phase-matched classification, consensus anomaly alarm, context, rule verdict, results.forecast, SkyPortal-shaped annotations and classification, and model_lightcurve, the forecast g and r curves, when a forecast is made)."""
     from flare.skyportal import analyze
     fid = {"ztfg": 1, "ztfr": 2, "ztfi": 3, "g": 1, "r": 2, "i": 3}
     rows = sorted((float(t), fid[f.lower()], float(m), float(e)) for t, f, m, e in zip(mjd, filter, mag, magerr) if f.lower() in fid)

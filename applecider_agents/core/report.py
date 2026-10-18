@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import List, Literal
 from pydantic import BaseModel, Field
 
-Verdict = Literal["ordinary", "needs_spectrum", "anomaly_review", "likely_stellar_or_agn", "already_classified", "insufficient_data"]
+# ambiguous and host_mismatch are emitted by FLARE's own rule verdict (flare.skyportal.rule_verdict)
+Verdict = Literal["ordinary", "needs_spectrum", "anomaly_review", "likely_stellar_or_agn", "already_classified", "insufficient_data",
+                  "ambiguous", "host_mismatch"]
 
 
 class Evidence(BaseModel):

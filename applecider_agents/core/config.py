@@ -16,8 +16,6 @@ FLARE_BENCHMARK_URL = os.environ.get("FLARE_BENCHMARK_URL", "https://raw.githubu
 DATA_DIR = Path(os.environ["APPLECIDER_DATA_DIR"]) if os.environ.get("APPLECIDER_DATA_DIR") else None
 # Optional directories of per-object event files <ZTFID>.npz, colon-separated; otherwise photometry is fetched.
 EVENT_DIRS = [Path(p) for p in os.environ.get("APPLECIDER_EVENTS_DIRS", "").split(":") if p]
-# Optional CSV of energies for classified objects (columns peakmag, energy) for the magnitude-matched threshold.
-TEST_SCORES = Path(os.environ["APPLECIDER_TEST_SCORES"]) if os.environ.get("APPLECIDER_TEST_SCORES") else None
 
 MODE = os.environ.get("FLARE_MODE", "dry-run")            # dry-run | comment
 MODEL = os.environ.get("APPLECIDER_AGENTS_MODEL", "claude-opus-5")
