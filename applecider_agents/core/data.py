@@ -17,6 +17,13 @@ from flare import data as D                                   # AppleCiDEr 15-co
 from flare.config import HOST_COLS, GW_COLS, POS_COLS
 
 TABLES = {"hosts.csv": HOST_COLS, "hosts_photoz.csv": ["z_phot", "z_spec"], "context_gaia_wise.csv": GW_COLS, "ps1_position.csv": POS_COLS}
+_SEEDED: dict = {}
+
+
+def seed(obj_id: str, events_array, context: dict) -> None:
+    """Photometry and context supplied by the caller (e.g. the FLARE SkyPortal service, which
+    already holds them) to be used for obj_id instead of a fetch."""
+    _SEEDED[obj_id] = (np.asarray(events_array), dict(context))
 
 
 def benchmark_file(name: str) -> Path | None:
@@ -43,7 +50,10 @@ def local_event_path(obj_id: str) -> Path | None:
 
 
 def events(obj_id: str, horizon_days: float = 100.0) -> np.ndarray:
-    """(N, 15) event array truncated to the horizon; local file or fetched photometry."""
+    """(N, 15) event array truncated to the horizon; seeded, local file or fetched photometry."""
+    if obj_id in _SEEDED:
+        arr = _SEEDED[obj_id][0]
+        return arr[arr[:, 0] <= horizon_days]
     p = local_event_path(obj_id)
     if p is not None:
         return D.load_events(str(p), horizon_days=horizon_days)
@@ -101,7 +111,9 @@ def _context_table():
 
 
 def context(obj_id: str, peak_mag: float | None = None, live: bool = True) -> dict:
-    """External context: the benchmark tables when the object is in them, else live catalogue queries."""
+    """External context: seeded, the benchmark tables when the object is in them, else live catalogue queries."""
+    if obj_id in _SEEDED:
+        return {"_source": "provided", **_SEEDED[obj_id][1]}
     t = _context_table()
     if t is not None and obj_id in t.index:
         row = {k: float(v) for k, v in t.loc[obj_id].items() if isinstance(v, (int, float, np.floating)) and np.isfinite(v)}
