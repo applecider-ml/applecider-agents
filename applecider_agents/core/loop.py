@@ -30,7 +30,7 @@ def triage(model: str, obj_id: str, horizon_days: float = 100.0, mock: bool = Fa
     from .object_tools import OBJECT_TOOLS
     tools = [x for x in OBJECT_TOOLS if not (blind and x.name in ("catalog_lookup", "tns_lookup"))] + list(M.tools)
     system = M.system_prompt + ("\n\nEvaluation mode: the catalogue tools are unavailable; judge from the light curve, the model outputs and the context alone." if blind else "")
-    kw = dict(model=C.MODEL, max_tokens=4096, system=system, tools=tools, output_format=Report,
+    kw = dict(model=C.MODEL, max_tokens=4096, system=system, tools=tools, output_format=M.report_cls or Report,
               thinking={"type": "adaptive"}, output_config={"effort": C.EFFORT}, max_iterations=C.MAX_ITERATIONS,
               cache_control={"type": "ephemeral"},
               messages=[{"role": "user", "content": f"Triage {obj_id} using the first {horizon_days:g} days of its light curve (horizon_days={horizon_days:g} in every tool call). Return the Report."}])

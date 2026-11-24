@@ -39,7 +39,6 @@ def publish(report, mode: str = C.MODE):
     if mode in ("comment", "analysis"):
         sp = SkyPortal()
         c = sp.comment(report.obj_id, report.comment())
-        a = sp.annotation(report.obj_id, dict(verdict=report.verdict, priority=report.priority, label=report.flare_label,
-                                              prediction_set=report.prediction_set, credibility=report.credibility, energy_percentile=report.energy_percentile))
+        a = sp.annotation(report.obj_id, report.annotation(), origin=report.ORIGIN)
         return dict(posted=True, mode=mode, comment=c.get("status"), annotation=a.get("status"))
     raise ValueError(f"unknown FLARE_MODE {mode}")

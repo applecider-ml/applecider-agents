@@ -1,6 +1,6 @@
 """The structured verdict the agent must return, and how it renders."""
 from __future__ import annotations
-from typing import List, Literal
+from typing import ClassVar, List, Literal
 from pydantic import BaseModel, Field
 
 # ambiguous and host_mismatch are emitted by FLARE's own rule verdict (flare.skyportal.rule_verdict)
@@ -14,6 +14,9 @@ class Evidence(BaseModel):
 
 
 class Report(BaseModel):
+    # SkyPortal keeps one annotation per origin and source; "FLARE" belongs to the FLARE analysis service.
+    ORIGIN: ClassVar[str] = "FLARE-agent"
+
     obj_id: str
     verdict: Verdict
     priority: int = Field(ge=0, le=3, description="0 ignore, 1 archive check, 2 spectrum if time allows, 3 spectrum tonight")
@@ -31,3 +34,8 @@ class Report(BaseModel):
         s = "|".join(self.prediction_set) or "{}"
         head = f"[FLARE] {self.verdict.replace('_', ' ')} (priority {self.priority}): {self.flare_label}, set {{{s}}}, credibility {self.credibility:.2f}, energy pct {self.energy_percentile:.1f}."
         return head + " " + self.summary + (f" Action: {self.suggested_action}" if self.suggested_action else "")
+
+    def annotation(self) -> dict:
+        """The SkyPortal annotation posted next to the comment, under `ORIGIN`."""
+        return dict(verdict=self.verdict, priority=self.priority, label=self.flare_label, prediction_set=self.prediction_set,
+                    credibility=self.credibility, energy_percentile=self.energy_percentile)
