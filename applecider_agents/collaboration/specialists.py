@@ -186,16 +186,26 @@ class AnomalySpecialist:
                 concerns=["Anomaly scorer unavailable."]
             )
 
-        alarms = anom.get("alarms") or []
+        # flare_anomaly returns the decisions as {"1%": bool, "5%": bool, "10%": bool};
+        # keep only the rates that fired, and none when the alarm is uncalibrated at this phase.
+        raw_alarms = anom.get("alarms") or []
+        if isinstance(raw_alarms, dict):
+            alarms = [rate for rate, fired in raw_alarms.items() if fired is True]
+        else:
+            alarms = [str(rate) for rate in raw_alarms]
+        calibrated = anom.get("calibrated", True) is not False
+        if not calibrated:
+            alarms = []
         far = anom.get("alarm_far")
         pct = anom.get("energy_percentile")
         lr = anom.get("likelihood_ratio")
         score = anom.get("alarm_score", "consensus")
 
         findings = []
-        concerns = []
+        concerns = [] if calibrated else ["Anomaly alarm is uncalibrated at this phase; its decisions are withheld."]
         flags = {
             "alarms": alarms,
+            "calibrated": calibrated,
             "alarm_far": far,
             "energy_percentile": pct,
             "likelihood_ratio": lr,
