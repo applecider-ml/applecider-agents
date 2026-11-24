@@ -2,7 +2,7 @@
 
 Triage agents for the [AppleCiDEr](https://github.com/applecider-ml) transient models. The first module wraps
 [FLARE](https://github.com/applecider-ml/flare) (photometric classification, conformal sets, blind consensus anomaly alarm);
-ASTRANet (spectra) is the next folder.
+ASTRANet (spectra) is the second folder.
 
 Agents are kept separate from the model packages on purpose. A model repo stays a dependency-light,
 citable classifier. This repo holds what sits between a model and a human: the deterministic tools that
@@ -17,7 +17,7 @@ applecider_agents/
   collaboration/  Multi-agent investigation & debate (TriageSpecialist, PhotometrySpecialist,
                   AnomalySpecialist, ContextSpecialist, and LeadScientist debate reconciliation)
   flare/          tools.py (flare_classify, flare_anomaly, flare_analyze_photometry), triage.py (reading guide + rule verdict)
-  astranet/       (next) get_spectrum via SkyPortal, astranet_classify, conformal set, spectral anomaly
+  astranet/       tools.py (get_spectra, astranet_classify, astranet_novelty), triage.py (reading guide + rule verdict)
 ```
 
 ## Install and run
@@ -57,6 +57,35 @@ on the source page. The agent adds the layer above the numbers:
    to be superluminous?", and answer with tool results it can cite.
 4. **Posts only through a gate.** Comments and annotations go out only under `FLARE_MODE=comment`, to
    named groups, with a daily cap; follow-up requests are never opened by the model.
+
+## ASTRANet agent
+
+`applecider_agents/astranet/` adds the spectroscopic module. It calls `astranet.skyportal.analyze`,
+the function the SkyPortal analysis service runs, once per object on every spectrum of the source.
+
+| tool | what it returns |
+|---|---|
+| `get_spectra` | the spectra of the source (instrument, date, wavelength range) and the source redshift |
+| `astranet_classify` | object probabilities over Ia, Ibc, SLSN, II, AGN, CV, TDE, spectra agreeing, per-spectrum class and member agreement; `use_redshift=false` withholds the redshift |
+| `astranet_novelty` | object-level novelty p-value in its redshift stratum and alarms at 1, 5, 10 and 15 % |
+| `astranet_triage` (MCP) | rule-based verdict, evidence per tool and the reading guide |
+| `astranet_analyze_spectrum` (MCP) | the service result for one spectrum the caller already holds |
+
+```bash
+pip install "applecider-agents[astranet,mcp]"
+export ASTRANET_MODELS=/path/to/models          # twelve checkpoints + novelty.joblib (astranet tools/fetch_weights.py)
+export SKYPORTAL_URL=... SKYPORTAL_TOKEN=...    # spectra are read from SkyPortal; or APPLECIDER_SPECTRA_DIRS=/dir/with/<obj_id>*.dat
+applecider-agents triage --model astranet ZTF22abftjko
+applecider-agents mcp --models flare,astranet
+```
+
+Verdicts for a spectroscopic model: `anomaly_review` on a novelty alarm at 1 % (or at 5 % for a
+common class), `needs_spectrum` when the spectra disagree, the top probability is below 0.6, or the
+class is SLSN or TDE without a redshift (it then asks for a redshift or a second spectrum),
+`likely_stellar_or_agn` for a confident AGN or CV, `ordinary` otherwise. The report reuses the
+shared `Report`: `flare_label` holds the ASTRANet class, `prediction_set` the classes predicted by
+at least one spectrum, `credibility` the novelty p-value, and the comment carries the `[ASTRANet]`
+prefix.
 
 ## Modes and cost
 

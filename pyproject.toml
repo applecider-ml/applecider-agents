@@ -11,6 +11,7 @@ dependencies = ["anthropic>=1.6", "pydantic>=2", "numpy", "pandas"]
 
 [project.optional-dependencies]
 flare = ["flare-transients[skyportal]"]
+astranet = ["astranet[novelty] @ git+https://github.com/applecider-ml/astranet"]
 mcp = ["mcp>=2"]
 all = ["applecider-agents[flare,mcp]"]
 
