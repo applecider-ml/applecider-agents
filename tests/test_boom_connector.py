@@ -1,6 +1,5 @@
 """Tests for the BOOM alert broker connector module."""
-import os
-import pytest
+from pathlib import Path
 from applecider_agents.boom_connector import (
     BoomConnectorClient,
     adapt_boom_object,
@@ -10,7 +9,7 @@ from applecider_agents.boom_connector import (
 )
 from applecider_agents.collaboration import collaborate
 
-FIXTURE_PATH = "/Users/asasli/.gemini/antigravity/scratch/flare/docs/boom_demo.json"
+FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "boom_demo.json"
 
 
 def test_boom_connector_client_with_fixture():

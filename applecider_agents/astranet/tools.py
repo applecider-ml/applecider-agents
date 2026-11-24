@@ -4,7 +4,7 @@ object-level novelty stage. The science lives in the astranet package
 here fetch the spectra, call it once per object and return rounded numbers.
 
 Spectra come from SkyPortal (SKYPORTAL_URL, SKYPORTAL_TOKEN; read-only requests) or from
-local directories of exported files (APPLECIDER_SPECTRA_DIRS, colon-separated, files named
+local directories of exported files (APPLECIDER_SPECTRA_DIRS, separated by os.pathsep, files named
 <obj_id>*.dat / .ascii / .txt with two columns). Weights: ASTRANET_MODELS (directory with the
 twelve checkpoints) and ASTRANET_NOVELTY (novelty bundle; default <models>/novelty.joblib)."""
 from __future__ import annotations
@@ -28,7 +28,7 @@ def _f(x, nd=3):
 
 def _local(obj_id):
     out = []
-    for d in [Path(p) for p in os.environ.get("APPLECIDER_SPECTRA_DIRS", "").split(":") if p]:
+    for d in [Path(p).expanduser() for p in os.environ.get("APPLECIDER_SPECTRA_DIRS", "").split(os.pathsep) if p]:
         for p in sorted(d.glob(f"{obj_id}*")):
             if p.suffix.lower() in EXT:
                 from astranet.preprocess import read_dat

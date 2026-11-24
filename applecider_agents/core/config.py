@@ -5,17 +5,17 @@ optional local data directory can override both."""
 import os
 from pathlib import Path
 
-HOME = Path(os.environ.get("APPLECIDER_AGENTS_HOME", Path.home() / ".applecider_agents"))
+HOME = Path(os.environ.get("APPLECIDER_AGENTS_HOME", Path.home() / ".applecider_agents")).expanduser()
 CACHE = HOME / "cache"
-LOG_DIR = Path(os.environ.get("APPLECIDER_AGENTS_LOG", HOME / "logs"))
+LOG_DIR = Path(os.environ.get("APPLECIDER_AGENTS_LOG", HOME / "logs")).expanduser()
 
 # The FLARE benchmark tables (catalogue, splits, host / photo-z / Gaia-WISE / PS1 context) as
 # published in the flare repository; pinned to a commit so results are reproducible.
 FLARE_BENCHMARK_URL = os.environ.get("FLARE_BENCHMARK_URL", "https://raw.githubusercontent.com/applecider-ml/flare/c4b6377/benchmark")
 # A local copy (e.g. a checkout's benchmark/ directory) takes precedence when set.
-DATA_DIR = Path(os.environ["APPLECIDER_DATA_DIR"]) if os.environ.get("APPLECIDER_DATA_DIR") else None
-# Optional directories of per-object event files <ZTFID>.npz, colon-separated; otherwise photometry is fetched.
-EVENT_DIRS = [Path(p) for p in os.environ.get("APPLECIDER_EVENTS_DIRS", "").split(":") if p]
+DATA_DIR = Path(os.environ["APPLECIDER_DATA_DIR"]).expanduser() if os.environ.get("APPLECIDER_DATA_DIR") else None
+# Optional directories of per-object event files <ZTFID>.npz, separated by os.pathsep; otherwise photometry is fetched.
+EVENT_DIRS = [Path(p).expanduser() for p in os.environ.get("APPLECIDER_EVENTS_DIRS", "").split(os.pathsep) if p]
 
 MODE = os.environ.get("FLARE_MODE", "dry-run")            # dry-run | comment
 MODEL = os.environ.get("APPLECIDER_AGENTS_MODEL", "claude-opus-5")
