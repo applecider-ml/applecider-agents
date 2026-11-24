@@ -14,6 +14,7 @@ class ModelAgent:
     triage: Callable                        # rule-based verdict: (obj_id, horizon_days) -> Report
     system_prompt: str                      # for the LLM loop: what the tools mean and how to read them
     reading_guide: str                      # the part of the prompt a foreign assistant needs (served by MCP)
+    report_cls: Optional[type] = None
     mcp_extra: List[object] = field(default_factory=list)   # plain functions to expose over MCP only (e.g. inline-photometry variants)
 
     def register(self):
