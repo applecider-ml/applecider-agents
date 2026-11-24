@@ -16,6 +16,8 @@ applecider_agents/
                   loop.py (Claude tool-use loop), mcp.py (one server, all models), skyportal_client.py, eval.py, registry.py
   collaboration/  Multi-agent investigation & debate (TriageSpecialist, PhotometrySpecialist,
                   AnomalySpecialist, ContextSpecialist, and LeadScientist debate reconciliation)
+  boom_connector/ Adapter and scanner for the BOOM alert broker (ZTF & Rubin collections,
+                  pre-staged crossmatches, discovery leaderboards, and UI card export)
   flare/          tools.py (flare_classify, flare_anomaly, flare_analyze_photometry), triage.py (reading guide + rule verdict)
   astranet/       tools.py (get_spectra, astranet_classify, astranet_novelty), triage.py (reading guide + rule verdict)
 ```
@@ -27,9 +29,13 @@ pip install "applecider-agents[flare,mcp]"      # flare-transients[skyportal] + 
 applecider-agents triage ZTF22aazcdan            # rule-based verdict, no LLM, works anywhere
 applecider-agents triage ZTF22aazcdan --llm      # Claude loop over the same tools (ANTHROPIC_API_KEY)
 applecider-agents collaborate ZTF22aazcdan --detailed # Multi-agent specialist debate & discovery report
+applecider-agents boom-connector scan --limit 50     # Scan broker candidate stream & rank discoveries
+applecider-agents boom-connector triage ZTF25abhoijc --detailed # Triage broker alert with multi-agent team
 applecider-agents mcp --transport streamable-http --port 8765 --models flare
 applecider-agents eval --model flare --list ood  # the benchmark's out-of-taxonomy hold-out, run blind (no catalogue tools)
 ```
+
+For an interactive visual overview of the multi-agent architecture, the four specialists, and realistic discovery scenarios, open [docs/index.html](docs/index.html) (or deploy via GitHub Pages).
 
 The benchmark tables (catalogue and context blocks) are read from the public flare repository and cached
 locally on first use; light curves come from local event files when `APPLECIDER_EVENTS_DIRS` is set and

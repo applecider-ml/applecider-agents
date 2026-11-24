@@ -232,6 +232,10 @@
       <pre class="bg-[#0d1117] p-3 rounded border border-[#30363d] text-xs text-[#58a6ff] overflow-x-auto"><code># Run multi-agent debate and print detailed specialist findings:
 applecider-agents collaborate ZTF19acbzgog --detailed
 
+# Triage and scan candidate stream via BOOM broker connector:
+applecider-agents boom-connector scan --limit 50
+applecider-agents boom-connector triage ZTF25abhoijc --detailed --render-card
+
 # Output structured SkyPortal JSON report:
 applecider-agents collaborate ZTF19acbzgog
 

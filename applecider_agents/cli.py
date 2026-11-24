@@ -15,6 +15,25 @@ def main(argv=None):
     e = sub.add_parser("eval"); e.add_argument("--model", default="flare"); e.add_argument("--list", required=True, help="ood | test | path to a CSV with obj_id[,truth]"); e.add_argument("--n", type=int); e.add_argument("--llm", action="store_true")
     m = sub.add_parser("mcp"); m.add_argument("--transport", default="stdio", choices=["stdio", "streamable-http", "sse"]); m.add_argument("--port", type=int, default=8765); m.add_argument("--host", default="127.0.0.1"); m.add_argument("--models", default="flare")
     n = sub.add_parser("nightly"); n.add_argument("--model", default="flare"); n.add_argument("--since-days", type=float, default=1.0); n.add_argument("--cap", type=int, default=C.DAILY_CAP); n.add_argument("--llm", action="store_true")
+    
+    # boom-connector subcommands
+    b = sub.add_parser("boom-connector", help="BOOM broker connector: scan, triage, and rank discoveries")
+    bsub = b.add_subparsers(dest="boom_cmd", required=True)
+    bt = bsub.add_parser("triage", help="Triage broker alerts with multi-agent debate")
+    bt.add_argument("ids", nargs="+")
+    bt.add_argument("--model", default="flare")
+    bt.add_argument("--llm", action="store_true")
+    bt.add_argument("--detailed", action="store_true")
+    bt.add_argument("--render-card", action="store_true")
+    bt.add_argument("--fixture", help="Path to local broker fixture JSON for offline testing")
+    
+    bsc = bsub.add_parser("scan", help="Scan and rank broker candidate stream")
+    bsc.add_argument("--limit", type=int, default=20)
+    bsc.add_argument("--min-det", type=int, default=2)
+    bsc.add_argument("--max-mag", type=float, default=20.0)
+    bsc.add_argument("--model", default="flare")
+    bsc.add_argument("--llm", action="store_true")
+    bsc.add_argument("--fixture", help="Path to local broker fixture JSON for offline testing")
     a = ap.parse_args(argv)
     if a.cmd == "triage":
         from .core.loop import triage
@@ -50,6 +69,26 @@ def main(argv=None):
         print(f"{len(srcs)} sources saved since {since} (cap {a.cap}), mode {C.MODE}")
         for s in srcs:
             rep = triage(a.model, s["id"], mock=not a.llm); print(rep.comment()); print(" ->", publish(rep))
+    elif a.cmd == "boom-connector":
+        from .boom_connector import BoomConnectorClient, adapt_boom_object, BoomScanner, BoomPublisher
+        from .collaboration import collaborate
+        client = BoomConnectorClient(fixture_file=a.fixture)
+        if a.boom_cmd == "triage":
+            publisher = BoomPublisher(client=client)
+            for oid in a.ids:
+                adapt_boom_object(oid, client=client, seed_core=True)
+                rep = collaborate(oid, model=a.model, use_llm=a.llm)
+                if a.detailed:
+                    print(rep.detailed_summary())
+                else:
+                    print(json.dumps(rep.model_dump(), indent=1))
+                    print("\nCOMMENT:", rep.comment())
+                if a.render_card:
+                    print("\n--- BOOM UI CARD ---\n", publisher.render_boom_tile_card(rep))
+        elif a.boom_cmd == "scan":
+            scanner = BoomScanner(client=client, model=a.model)
+            board = scanner.scan(limit=a.limit, min_detections=a.min_det, max_mag=a.max_mag, use_llm=a.llm)
+            print(board.summary_table())
 
 
 if __name__ == "__main__":
