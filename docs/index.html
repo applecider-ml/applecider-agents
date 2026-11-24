@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AppleCiDEr: Multi-Agent Transient Discovery</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen p-4 sm:p-8">
+  <div class="max-w-5xl mx-auto space-y-8">
+
+    <!-- Header -->
+    <header class="border-b border-[#30363d] pb-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-xs font-medium bg-[#161b22] text-[#58a6ff] border border-[#30363d] mb-2 font-mono">
+            applecider-agents / collaboration
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-[#f0f6fc]">
+            Multi-Agent Transient Discovery
+          </h1>
+          <p class="text-[#8b949e] text-sm mt-1">
+            Collaborative multi-specialist system for astronomical transient triage and anomaly verification (ZTF & Rubin LSST).
+          </p>
+        </div>
+        <div class="bg-[#161b22] border border-[#30363d] rounded p-3 max-w-xs text-right">
+          <div class="text-[10px] text-[#8b949e] font-mono uppercase tracking-wider">Design Principle</div>
+          <div class="text-xs font-mono text-[#d29922] mt-0.5">
+            Every number comes from a tool call; the model never does science.
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Overview -->
+    <section class="bg-[#161b22] border border-[#30363d] rounded-lg p-5 space-y-2">
+      <h2 class="text-sm font-semibold text-[#f0f6fc] uppercase tracking-wider font-mono">
+        Overview
+      </h2>
+      <p class="text-xs sm:text-sm text-[#8b949e] leading-relaxed">
+        With the Vera C. Rubin Observatory generating ~10 million alerts nightly, standalone classifiers that output single probabilities are insufficient for identifying rare transient discoveries (e.g. Kilonovae, FBOTs, SLSNe). Genuine discovery requires verifying host galaxy context, rejecting Milky Way stellar contaminants, checking multi-year archival baselines, and evaluating conformal credibility.
+      </p>
+    </section>
+
+    <!-- Architecture & Specialists -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between border-b border-[#30363d] pb-2">
+        <h2 class="text-sm font-semibold text-[#f0f6fc] uppercase tracking-wider font-mono">
+          Specialist Architecture
+        </h2>
+        <span class="text-xs text-[#8b949e]">Select a specialist to inspect</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="specialist-grid">
+        
+        <!-- Specialist 1: Triage -->
+        <div onclick="selectAgent('triage')" id="card-triage" class="cursor-pointer bg-[#161b22] border-2 border-[#58a6ff] p-4 rounded transition-all">
+          <div class="text-[11px] font-mono text-[#58a6ff] font-semibold mb-1">01 / SCREENING</div>
+          <h3 class="font-semibold text-[#f0f6fc] text-sm">Triage Specialist</h3>
+          <p class="text-xs text-[#8b949e] mt-1">Data quality, cadence, BTS/TNS catalog check, and multi-year archival history.</p>
+        </div>
+
+        <!-- Specialist 2: Photometry -->
+        <div onclick="selectAgent('photometry')" id="card-photometry" class="cursor-pointer bg-[#161b22] border border-[#30363d] p-4 rounded transition-all">
+          <div class="text-[11px] font-mono text-[#8b949e] font-semibold mb-1">02 / CLASSIFIER</div>
+          <h3 class="font-semibold text-[#f0f6fc] text-sm">Photometry Specialist</h3>
+          <p class="text-xs text-[#8b949e] mt-1">FLARE phase models, Venn-Abers calibrated probabilities, and 90% conformal sets.</p>
+        </div>
+
+        <!-- Specialist 3: Anomaly -->
+        <div onclick="selectAgent('anomaly')" id="card-anomaly" class="cursor-pointer bg-[#161b22] border border-[#30363d] p-4 rounded transition-all">
+          <div class="text-[11px] font-mono text-[#8b949e] font-semibold mb-1">03 / OUTLIER</div>
+          <h3 class="font-semibold text-[#f0f6fc] text-sm">Anomaly Specialist</h3>
+          <p class="text-xs text-[#8b949e] mt-1">14 LUNA consensus scorers, 1%/5%/10% FAR alarms, and novelty energy.</p>
+        </div>
+
+        <!-- Specialist 4: Context -->
+        <div onclick="selectAgent('context')" id="card-context" class="cursor-pointer bg-[#161b22] border border-[#30363d] p-4 rounded transition-all">
+          <div class="text-[11px] font-mono text-[#8b949e] font-semibold mb-1">04 / ENVIRONMENT</div>
+          <h3 class="font-semibold text-[#f0f6fc] text-sm">Context Specialist</h3>
+          <p class="text-xs text-[#8b949e] mt-1">Host galaxy offset, photo-z, pseudo-luminosity, Gaia astrometry, and WISE IR colors.</p>
+        </div>
+
+      </div>
+
+      <!-- Agent Details Box -->
+      <div id="agent-detail" class="bg-[#161b22] border border-[#30363d] rounded p-4 sm:p-5">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- Interactive Case Explorer -->
+    <section class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#30363d] pb-2">
+        <div>
+          <h2 class="text-sm font-semibold text-[#f0f6fc] uppercase tracking-wider font-mono">
+            Interactive Benchmark Cases
+          </h2>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="loadCase('nova')" id="btn-nova" class="px-3 py-1 rounded text-xs font-medium bg-[#1f6feb] text-white">
+            Case 1: Known Nova
+          </button>
+          <button onclick="loadCase('fbot')" id="btn-fbot" class="px-3 py-1 rounded text-xs font-medium bg-[#21262d] text-[#c9d1d9] hover:bg-[#30363d]">
+            Case 2: Rare Exotic (FBOT/Kilonova)
+          </button>
+          <button onclick="loadCase('slsn')" id="btn-slsn" class="px-3 py-1 rounded text-xs font-medium bg-[#21262d] text-[#c9d1d9] hover:bg-[#30363d]">
+            Case 3: False SLSN Pitfall
+          </button>
+          <button onclick="loadCase('agn')" id="btn-agn" class="px-3 py-1 rounded text-xs font-medium bg-[#21262d] text-[#c9d1d9] hover:bg-[#30363d]">
+            Case 4: Multi-Year AGN
+          </button>
+        </div>
+      </div>
+
+      <!-- Explorer Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 bg-[#0d1117] border border-[#30363d] rounded-lg p-4 sm:p-5">
+        
+        <!-- Left 2 Cols: Agent Debate Feed -->
+        <div class="lg:col-span-2 space-y-3">
+          <div class="flex items-center justify-between border-b border-[#30363d] pb-2">
+            <span class="font-mono text-xs px-2 py-0.5 rounded bg-[#21262d] text-[#58a6ff]" id="case-id">ZTF19acbzgog</span>
+            <span class="text-xs font-mono px-2 py-0.5 rounded border border-[#30363d]" id="case-badge">ALREADY_CLASSIFIED</span>
+          </div>
+          <div class="space-y-2 max-h-80 overflow-y-auto pr-1 font-mono text-xs" id="case-feed">
+            <!-- Feed injected via JS -->
+          </div>
+        </div>
+
+        <!-- Right Col: Lead Scientist Synthesis -->
+        <div class="bg-[#161b22] border border-[#30363d] rounded p-4 flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between border-b border-[#30363d] pb-2">
+              <span class="text-xs text-[#8b949e] font-mono uppercase">Verdict</span>
+              <span class="text-xs font-mono font-bold text-[#58a6ff]" id="case-verdict">already_classified</span>
+            </div>
+
+            <div>
+              <div class="text-[11px] text-[#8b949e] font-mono">Scientific Hypothesis:</div>
+              <div class="text-xs text-[#f0f6fc] mt-1 leading-relaxed" id="case-hypothesis">
+                Known transient already spectroscopically typed in BTS as nova.
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 pt-1 font-mono">
+              <div class="bg-[#0d1117] p-2 rounded border border-[#30363d]">
+                <div class="text-[10px] text-[#8b949e]">Discovery Score</div>
+                <div class="text-xs font-semibold text-[#f0f6fc] mt-0.5" id="case-score">0.00 / 1.0</div>
+              </div>
+              <div class="bg-[#0d1117] p-2 rounded border border-[#30363d]">
+                <div class="text-[10px] text-[#8b949e]">Priority</div>
+                <div class="text-xs font-semibold text-[#f0f6fc] mt-0.5" id="case-priority">0 (Ignore)</div>
+              </div>
+            </div>
+
+            <div class="bg-[#21262d] border border-[#30363d] p-2.5 rounded text-[11px] text-[#8b949e] leading-relaxed" id="case-reconcile">
+              Reconciliation: Anomaly specialist fired a 1% alarm, but Triage specialist verified existing BTS classification.
+            </div>
+          </div>
+
+          <div class="border-t border-[#30363d] pt-2 text-xs">
+            <span class="text-[#8b949e] font-mono text-[10px] uppercase">Recommended Action:</span>
+            <div class="text-[#58a6ff] font-medium mt-0.5" id="case-action">Archive record; no follow-up needed.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Pitfall Resolution Rules -->
+    <section class="space-y-3">
+      <h2 class="text-sm font-semibold text-[#f0f6fc] uppercase tracking-wider font-mono border-b border-[#30363d] pb-2">
+        Astrophysical Pitfall Resolution
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        
+        <div class="bg-[#161b22] border border-[#30363d] p-3.5 rounded space-y-1.5">
+          <div class="font-semibold text-[#f0f6fc] font-mono">1. SLSN Over-prediction</div>
+          <p class="text-[#8b949e] leading-relaxed">
+            In benchmark evaluations, "argmax SLSN" carries only 64% true precision. The system evaluates host photo-z: if implied pseudo-absolute magnitude \(M > -20\), it down-weights priority from 3 to 2.
+          </p>
+        </div>
+
+        <div class="bg-[#161b22] border border-[#30363d] p-3.5 rounded space-y-1.5">
+          <div class="font-semibold text-[#f0f6fc] font-mono">2. Milky Way Stellar Contamination</div>
+          <p class="text-[#8b949e] leading-relaxed">
+            Flaring stars or cataclysmic variables can mimic early extragalactic rise. The Context Specialist checks Gaia parallax/proper-motion (>3σ) to definitively reject Galactic contaminants.
+          </p>
+        </div>
+
+        <div class="bg-[#161b22] border border-[#30363d] p-3.5 rounded space-y-1.5">
+          <div class="font-semibold text-[#f0f6fc] font-mono">3. Nuclear Flaring in Active Nuclei</div>
+          <p class="text-[#8b949e] leading-relaxed">
+            Stochastic AGN flares often trigger blind anomaly detectors. Broker history (>365 days span) and WISE colors (\(W_1 - W_2 > 0.8\)) correctly classify the source as persistent AGN.
+          </p>
+        </div>
+
+        <div class="bg-[#161b22] border border-[#30363d] p-3.5 rounded space-y-1.5">
+          <div class="font-semibold text-[#f0f6fc] font-mono">4. Out-of-Distribution Candidates</div>
+          <p class="text-[#8b949e] leading-relaxed">
+            When credibility drops (< 0.05) and the 1% blind consensus alarm fires on an unclassified source with clean history, the Lead Scientist escalates to Priority 3 for Target of Opportunity (ToO) follow-up.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Quickstart CLI -->
+    <section class="bg-[#161b22] border border-[#30363d] rounded p-4 space-y-2">
+      <h2 class="text-xs font-semibold text-[#f0f6fc] uppercase tracking-wider font-mono">
+        Command-Line Interface
+      </h2>
+      <pre class="bg-[#0d1117] p-3 rounded border border-[#30363d] text-xs text-[#58a6ff] overflow-x-auto"><code># Run multi-agent debate and print detailed specialist findings:
+applecider-agents collaborate ZTF19acbzgog --detailed
+
+# Output structured SkyPortal JSON report:
+applecider-agents collaborate ZTF19acbzgog
+
+# Run full LLM debate loop (Anthropic / OpenAI / Gemini):
+applecider-agents collaborate ZTF22aazcdan --llm --detailed</code></pre>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-[#30363d] pt-4 text-center text-xs text-[#8b949e] font-mono">
+      AppleCiDEr Framework &bull; Multimodal Transient Classification
+    </footer>
+
+  </div>
+
+  <script>
+    const AGENTS = {
+      triage: {
+        title: "Triage Specialist",
+        role: "Data Cadence & Baseline Verification",
+        tools: ["get_photometry", "light_curve_history", "catalog_lookup", "tns_lookup"],
+        desc: "Filters uninteresting alerts by checking light-curve cadence, signal-to-noise, and multi-year baseline activity from broker archives. Identifies whether an object is already catalogued in BTS or TNS to prevent re-discovering known transients."
+      },
+      photometry: {
+        title: "Photometry Specialist",
+        role: "Phase-Matched Classification & Conformal Sets",
+        tools: ["flare_classify", "flare_analyze_photometry"],
+        desc: "Executes FLARE models matched to observation span (day 5, 10, 20 or full-curve). Evaluates Venn-Abers calibration intervals and the 90% Mondrian conformal prediction set. Flags low credibility (< 0.05) when an object does not fit standard SN classes."
+      },
+      anomaly: {
+        title: "Anomaly Specialist",
+        role: "14 LUNA Consensus Scorers & Outlier Detection",
+        tools: ["flare_anomaly"],
+        desc: "Evaluates the blind consensus anomaly alarm across 1%, 5%, and 10% False Alarm Rates (FAR). Computes novelty energy percentiles and likelihood ratios to isolate exotic, fast-evolving, or out-of-distribution transients."
+      },
+      context: {
+        title: "Context Specialist",
+        role: "Host Galaxy Environment & Astrometry",
+        tools: ["get_context"],
+        desc: "Cross-matches position with Pan-STARRS, Gaia, and WISE catalogues. Evaluates host galaxy separation, photo-z, pseudo-absolute magnitude (M_pseudo), Gaia parallax/proper-motion (stellar rejection), and WISE infrared AGN colors."
+      }
+    };
+
+    const CASES = {
+      nova: {
+        id: "ZTF19acbzgog",
+        badge: "ALREADY_CLASSIFIED",
+        verdict: "already_classified",
+        hypothesis: "Known transient already spectroscopically typed in BTS as nova (z=0.00017).",
+        score: "0.00 / 1.0",
+        priority: "0 (Ignore)",
+        reconcile: "Reconciliation: Anomaly specialist fired a 1% alarm (100th percentile novelty), but Triage specialist confirmed it was already classified in BTS as a nova.",
+        action: "Archive record; no observational follow-up needed.",
+        feed: [
+          { sender: "TriageSpecialist", text: "Observed 30 detections over 75.8 days. BTS lookup: Spectroscopic type is 'nova' (z=0.00017). Candidate verdict: already_classified." },
+          { sender: "PhotometrySpecialist", text: "Model 'bts6' predicted argmax: SN_Ia (P=0.596). Prediction set is {SN_CC}. Low credibility (0.137) marks poor fit to standard supernova classes." },
+          { sender: "AnomalySpecialist", text: "1% False Alarm Rate blind consensus alarm triggered across 14 LUNA scorers. Novelty energy at 100.0th percentile." },
+          { sender: "ContextSpecialist", text: "Host galaxy at 2.13 arcsec offset. No significant Gaia parallax or proper motion." },
+          { sender: "LeadScientist", text: "Resolved: Anomaly alarm accurately caught non-supernova morphology, but BTS record confirms it is a known Nova. Final verdict: ALREADY_CLASSIFIED (Priority 0)." }
+        ]
+      },
+      fbot: {
+        id: "ZTF24aakilox",
+        badge: "URGENT_DISCOVERY",
+        verdict: "anomaly_review",
+        hypothesis: "High-confidence novel transient out-of-distribution (Candidate FBOT or Kilonova in early rise).",
+        score: "0.95 / 1.0",
+        priority: "3 (Urgent Tonight)",
+        reconcile: "Consensus: Rapid rise (<1.8 days), 1% anomaly alarm, empty conformal set (credibility < 0.05), and pristine archival history.",
+        action: "URGENT: Request immediate Target of Opportunity (ToO) spectroscopy tonight.",
+        feed: [
+          { sender: "TriageSpecialist", text: "Rapid blue rise: 4 detections over 1.8 days. Not in BTS, not in TNS. Archival history: 0 prior detections across 5 years." },
+          { sender: "PhotometrySpecialist", text: "Phase model 'bts6_h5' ran. Credibility = 0.012 (< 0.05). Empty 90% conformal prediction set. Incompatible with standard classes." },
+          { sender: "AnomalySpecialist", text: "CRITICAL: 1% False-Alarm-Rate alarm fired. Novelty energy in 99.4th percentile. Likelihood ratio > 85." },
+          { sender: "ContextSpecialist", text: "Host galaxy offset 6.4 arcsec, photo-z = 0.045. Pseudo-magnitude M_pseudo = -17.8. No Gaia proper motion." },
+          { sender: "LeadScientist", text: "Resolved: Clean archival baseline + extreme anomaly + rapid rise = High-confidence novel discovery candidate. Triggering Priority 3 ToO follow-up." }
+        ]
+      },
+      slsn: {
+        id: "ZTF21abxyzsl",
+        badge: "PITFALL_RESOLVED",
+        verdict: "needs_spectrum",
+        hypothesis: "Candidate luminous transient with uncertain host redshift; likely core-collapse SN rather than true SLSN.",
+        score: "0.70 / 1.0",
+        priority: "2 (Standard Queue)",
+        reconcile: "Conflict resolved: Photometry suggested SLSN, but host photo-z gives M_pseudo = -19.4 mag (insufficient for M < -21 SLSN). Down-weighted to Priority 2.",
+        action: "Obtain spectrum if telescope queue allows to measure spectroscopic redshift.",
+        feed: [
+          { sender: "PhotometrySpecialist", text: "Model predicted argmax: SLSN (P=0.640). Prediction set includes {SLSN}." },
+          { sender: "ContextSpecialist", text: "Challenge: Host photo-z z=0.08 implies M_pseudo = -19.4 mag. True SLSNe require M < -21. Host separation is 11.2 arcsec." },
+          { sender: "TriageSpecialist", text: "Clean light curve, 18 detections over 24 days. Unclassified." },
+          { sender: "AnomalySpecialist", text: "10% FAR alarm fired, but 1% alarm did not fire. Energy percentile: 88%." },
+          { sender: "LeadScientist", text: "Resolved: Argmax SLSN precision is only 64% and luminosity is inconsistent with true SLSN. Reclassifying as needs_spectrum (Priority 2)." }
+        ]
+      },
+      agn: {
+        id: "ZTF18aaagnfl",
+        badge: "STELLAR_OR_AGN",
+        verdict: "likely_stellar_or_agn",
+        hypothesis: "Persistent active galactic nucleus (AGN) exhibiting ongoing stochastic variability.",
+        score: "0.05 / 1.0",
+        priority: "0 (Ignore)",
+        reconcile: "Conflict resolved: Truncated window resembled SN, but full broker history revealed 1,420 days of activity and WISE color W1-W2 = 0.92.",
+        action: "Cross-check with known AGN/QSO catalogues; monitor for flaring.",
+        feed: [
+          { sender: "PhotometrySpecialist", text: "100-day window resembles decaying transient. Model predicts SN_CC (P=0.48) with ambiguous set {SN_CC, AGN}." },
+          { sender: "TriageSpecialist", text: "Caution: Broker archive history shows 184 detections across 1,420 days (3.8 years). Explosive transients do not last years." },
+          { sender: "ContextSpecialist", text: "Nuclear location: offset 0.12 arcsec. WISE mid-IR color W1-W2 = 0.92 (> 0.8), characteristic of AGN thermal dust." },
+          { sender: "AnomalySpecialist", text: "No anomaly alarms triggered at 1% or 5% FAR." },
+          { sender: "LeadScientist", text: "Resolved: Multi-year baseline and infrared colors confirm persistent AGN variability. Final verdict: LIKELY_STELLAR_OR_AGN (Priority 0)." }
+        ]
+      }
+    };
+
+    function selectAgent(key) {
+      const a = AGENTS[key];
+      ['triage', 'photometry', 'anomaly', 'context'].forEach(k => {
+        const el = document.getElementById(`card-${k}`);
+        if (k === key) {
+          el.className = "cursor-pointer bg-[#161b22] border-2 border-[#58a6ff] p-4 rounded transition-all";
+          el.querySelector('.font-mono').className = "text-[11px] font-mono text-[#58a6ff] font-semibold mb-1";
+        } else {
+          el.className = "cursor-pointer bg-[#161b22] border border-[#30363d] p-4 rounded transition-all";
+          el.querySelector('.font-mono').className = "text-[11px] font-mono text-[#8b949e] font-semibold mb-1";
+        }
+      });
+
+      document.getElementById('agent-detail').innerHTML = `
+        <div class="space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#30363d] pb-2">
+            <div>
+              <h3 class="text-sm font-semibold text-[#f0f6fc] font-mono">${a.title}</h3>
+              <div class="text-xs text-[#58a6ff]">${a.role}</div>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              ${a.tools.map(t => `<span class="px-2 py-0.5 rounded bg-[#0d1117] text-[#8b949e] font-mono text-[11px] border border-[#30363d]">${t}</span>`).join('')}
+            </div>
+          </div>
+          <p class="text-xs text-[#8b949e] leading-relaxed">${a.desc}</p>
+        </div>
+      `;
+    }
+
+    function loadCase(key) {
+      const c = CASES[key];
+      ['nova', 'fbot', 'slsn', 'agn'].forEach(k => {
+        const btn = document.getElementById(`btn-${k}`);
+        if (k === key) {
+          btn.className = "px-3 py-1 rounded text-xs font-medium bg-[#1f6feb] text-white";
+        } else {
+          btn.className = "px-3 py-1 rounded text-xs font-medium bg-[#21262d] text-[#c9d1d9] hover:bg-[#30363d]";
+        }
+      });
+
+      document.getElementById('case-id').innerText = c.id;
+      document.getElementById('case-badge').innerText = c.badge;
+      document.getElementById('case-verdict').innerText = c.verdict;
+      document.getElementById('case-hypothesis').innerText = c.hypothesis;
+      document.getElementById('case-score').innerText = c.score;
+      document.getElementById('case-priority').innerText = c.priority;
+      document.getElementById('case-reconcile').innerText = c.reconcile;
+      document.getElementById('case-action').innerText = c.action;
+
+      document.getElementById('case-feed').innerHTML = c.feed.map(m => `
+        <div class="p-2.5 rounded bg-[#161b22] border border-[#30363d] space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="font-bold ${m.sender === 'LeadScientist' ? 'text-[#d29922]' : 'text-[#58a6ff]'}">[${m.sender}]</span>
+            <span class="text-[10px] text-[#8b949e]">tool-verified</span>
+          </div>
+          <div class="text-[#c9d1d9] text-xs leading-relaxed font-sans">${m.text}</div>
+        </div>
+      `).join('');
+    }
+
+    // Initialize defaults
+    selectAgent('triage');
+    loadCase('nova');
+  </script>
+</body>
+</html>
