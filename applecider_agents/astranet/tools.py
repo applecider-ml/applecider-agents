@@ -37,13 +37,20 @@ def _local(obj_id):
     return out
 
 
+def seed_spectra(obj_id, spectra_rows, redshift=None, source="provided"):
+    """Replace the source snapshot and invalidate every redshift variant of its analysis."""
+    _SPECTRA[obj_id] = (list(spectra_rows), redshift, source)
+    for key in list(_RESULT):
+        if key[0] == obj_id:
+            del _RESULT[key]
+
+
 def _skyportal(obj_id):
     from ..core.skyportal_client import SkyPortal
     sp = SkyPortal()
-    rows = sp._req("GET", f"/api/sources/{obj_id}/spectra").get("data", {}).get("spectra", [])
+    rows = sp.spectra(obj_id)
     z = (sp.source(obj_id).get("data") or {}).get("redshift")
-    return [dict(id=r.get("id"), observed_at=r.get("observed_at"), instrument=r.get("instrument_name"),
-                 wavelengths=r.get("wavelengths") or [], fluxes=r.get("fluxes") or []) for r in rows], z
+    return rows, z
 
 
 def spectra(obj_id: str):

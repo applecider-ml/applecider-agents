@@ -5,17 +5,19 @@ Specialists evaluate an astronomical source from their specific viewpoint
 The Lead Scientist then debates, reconciles any conflicts, and synthesizes a DiscoveryReport.
 """
 from __future__ import annotations
-from typing import Dict, List, Literal, Optional, Any
+from typing import Dict, List, Literal, Optional, Any, ClassVar
 from pydantic import BaseModel, Field
 from ..core.report import Report, Verdict, Evidence
 
-SpecialistRole = Literal["triage", "photometry", "anomaly", "context"]
+SpecialistRole = Literal["triage", "photometry", "anomaly", "context", "spectroscopy"]
 
 
 class SpecialistAssessment(BaseModel):
     """An evaluation submitted by a specialist agent."""
     role: SpecialistRole = Field(description="The domain of the specialist")
     verdict_candidate: Verdict = Field(description="Candidate verdict from this specialist's perspective")
+    status: Literal["ok", "unavailable", "error"] = "ok"
+    confidence_kind: str = "heuristic; not a calibrated probability"
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the assessment [0, 1]")
     key_findings: List[str] = Field(default_factory=list, description="Core facts and measurements observed by this agent")
     flags: Dict[str, Any] = Field(default_factory=dict, description="Boolean or numeric diagnostic flags")
@@ -37,6 +39,29 @@ class DiscoveryReport(Report):
     Inherits from the core Report so it is 100% compatible with existing SkyPortal
     publish gates, CLI formatting, and serialization, while adding multi-agent debate traces.
     """
+    ORIGIN: ClassVar[str] = "AppleCiDEr-collaboration"
+    model: str = "flare"
+    model_results: Dict[str, Any] = Field(default_factory=dict)
+    data_status: Dict[str, str] = Field(default_factory=dict)
+    provenance: Dict[str, Any] = Field(default_factory=dict)
+    score_kind: str = "heuristic ranking; not a probability of discovery"
+    llm_review: Optional[str] = None
+    llm_status: Literal["not_requested", "complete", "error"] = "not_requested"
+    llm_error: Optional[str] = None
+
+    def comment(self) -> str:
+        return (f"[AppleCiDEr] {self.verdict} (priority {self.priority}; models: {self.model}). "
+                f"{self.summary} Action: {self.suggested_action}")
+
+    def annotation(self) -> dict:
+        out = dict(verdict=self.verdict, priority=self.priority, models=self.model,
+                   ranking_score=self.discovery_potential, score_kind=self.score_kind)
+        for name, result in self.model_results.items():
+            out[f"{name}_status"] = self.data_status.get(name, "unavailable")
+            if result.get("predicted") is not None:
+                out[f"{name}_class"] = result["predicted"]
+        return out
+
     scientific_hypothesis: str = Field(
         default="",
         description="Physical explanation of the transient event (e.g. FBOT, Kilonova candidate, standard SN Ia, AGN flare)"
@@ -45,7 +70,7 @@ class DiscoveryReport(Report):
         default=0.0,
         ge=0.0,
         le=1.0,
-        description="Score indicating potential for new scientific discovery or high-value follow-up"
+        description="Heuristic follow-up ranking, NOT a calibrated discovery probability"
     )
     specialist_assessments: Dict[str, SpecialistAssessment] = Field(
         default_factory=dict,
@@ -65,7 +90,8 @@ class DiscoveryReport(Report):
         lines = [
             f"=== MULTI-AGENT DISCOVERY REPORT: {self.obj_id} ===",
             f"Verdict: {self.verdict.upper()} (Priority {self.priority})",
-            f"Discovery Potential: {self.discovery_potential:.2f} | Credibility: {self.credibility:.2f}",
+            f"Follow-up ranking: {self.discovery_potential:.2f} ({self.score_kind})",
+            f"Data status: {self.data_status}",
             f"Hypothesis: {self.scientific_hypothesis}",
             "",
             "--- Specialist Assessments ---"
@@ -84,4 +110,8 @@ class DiscoveryReport(Report):
                 lines.append(f"  ⚖ {cr}")
         lines.append("")
         lines.append(f"Action: {self.suggested_action}")
+        if self.llm_error:
+            lines.extend(["", f"LLM review failed: {self.llm_error}"])
+        if self.llm_review:
+            lines.extend(["", "--- LLM review (advisory) ---", self.llm_review])
         return "\n".join(lines)

@@ -37,7 +37,7 @@ def adapt_boom_object(
         rows = client.get_photometry_rows(obj_id)
 
     # 2. Convert rows into AppleCiDEr (N, 15) event array
-    ev = to_events(rows) if rows else None
+    ev = to_events(rows, horizon_days=float("inf")) if rows else None
 
     # 3. Obtain pre-staged catalogue context
     if ctx is None:
@@ -48,7 +48,7 @@ def adapt_boom_object(
     clean_ctx["_source"] = "boom_connector"
 
     # 4. Seed the core cache for zero-latency agent execution
-    if seed_core and ev is not None:
-        DATA.seed(obj_id, ev, clean_ctx)
+    if seed_core:
+        DATA.seed(obj_id, ev if ev is not None else np.empty((0, 15)), clean_ctx, metadata={"photometry_rows": rows})
 
     return ev, clean_ctx

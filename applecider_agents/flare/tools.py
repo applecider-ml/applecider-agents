@@ -103,7 +103,10 @@ def flare_analyze_photometry(mjd: list[float], filter: list[str], mag: list[floa
     params = dict(horizon_days=horizon_days, context=context, plot=False)
     if ra is not None and dec is not None:
         params.update(ra=ra, dec=dec)
-    out = analyze(rows, redshift, params, resource_id=obj_id, work_dir="/tmp"); out.pop("plot_files", None)
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="applecider-") as work_dir:
+        out = analyze(rows, redshift, params, resource_id=obj_id, work_dir=work_dir)
+    out.pop("plot_files", None)
     import json; return json.loads(json.dumps(out, default=float))
 
 

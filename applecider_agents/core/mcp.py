@@ -37,6 +37,17 @@ def build(models=None) -> MCPServer:
         server.tool(name=f"{M.name}_triage")(make_triage(M))
         for fn in M.mcp_extra:
             server.tool(name=fn.__name__, description=fn.__doc__)(fn)
+    def joint_triage(obj_id: str, horizon_days: float = 100.0) -> dict:
+        """Joint FLARE/ASTRANet evidence with explicit missing modalities; no LLM or publishing."""
+        from ..collaboration import collaborate
+        return _j(collaborate(obj_id, model="joint", horizon_days=horizon_days).model_dump())
+    server.tool(name="joint_triage")(joint_triage)
+
+    def skyportal_joint_triage(obj_id: str, horizon_days: float = 100.0) -> dict:
+        """Read a fresh SkyPortal photometry/spectra snapshot and jointly assess it; read-only."""
+        from ..skyportal_connector import investigate
+        return _j(investigate(obj_id, horizon_days=horizon_days).model_dump())
+    server.tool(name="skyportal_joint_triage")(skyportal_joint_triage)
     return server
 
 

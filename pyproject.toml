@@ -13,10 +13,11 @@ dependencies = ["anthropic>=1.6", "pydantic>=2", "numpy", "pandas"]
 flare = ["flare-transients[skyportal]"]
 astranet = ["astranet[novelty] @ git+https://github.com/applecider-ml/astranet"]
 mcp = ["mcp>=2"]
-all = ["applecider-agents[flare,mcp]"]
+all = ["applecider-agents[flare,astranet,mcp]"]
+test = ["pytest>=8", "build", "mcp>=2"]
 
 [project.scripts]
 applecider-agents = "applecider_agents.cli:main"
 
-[tool.setuptools]
-packages = ["applecider_agents", "applecider_agents.core", "applecider_agents.flare"]
+[tool.setuptools.packages.find]
+include = ["applecider_agents*"]

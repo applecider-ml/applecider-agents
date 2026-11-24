@@ -17,14 +17,14 @@ class TriageSpecialist:
     """Evaluates light-curve quality, long-term baseline, and existing catalog status."""
     role = "triage"
 
-    def assess(self, obj_id: str, horizon_days: float = 100.0) -> SpecialistAssessment:
-        phot = O.get_photometry.call(dict(obj_id=obj_id, horizon_days=horizon_days))
-        hist = O.light_curve_history.call(dict(obj_id=obj_id))
-        cat = O.catalog_lookup.call(dict(obj_id=obj_id))
-        tns = O.tns_lookup.call(dict(obj_id=obj_id))
+    def assess(self, obj_id: str, horizon_days: float = 100.0, require_photometry: bool = True, blind: bool = False) -> SpecialistAssessment:
+        phot = O.get_photometry.call(dict(obj_id=obj_id, horizon_days=horizon_days)) if require_photometry else {}
+        hist = O.light_curve_history.call(dict(obj_id=obj_id)) if require_photometry else {}
+        cat = {} if blind else O.catalog_lookup.call(dict(obj_id=obj_id))
+        tns = {} if blind else O.tns_lookup.call(dict(obj_id=obj_id))
 
         findings = []
-        concerns = []
+        concerns = ["Catalogue and TNS labels withheld for blind evaluation."] if blind else []
         flags: Dict[str, Any] = {}
 
         n_det = phot.get("n_detections", 0)
@@ -32,27 +32,35 @@ class TriageSpecialist:
         peak_mag = phot.get("peak_mag_observed")
         findings.append(f"Observed {n_det} detections over {span:.1f} days (peak mag {peak_mag})")
 
+        for name, result in (("photometry", phot), ("history", hist), ("catalogue", cat), ("TNS", tns)):
+            if result.get("error") or result.get("available") is False:
+                concerns.append(f"{name} unavailable: {result.get('error') or result.get('reason')}")
+        typed = [m for m in tns.get("matches", []) if m.get("object_type") not in (None, "", "Other", "Unknown")]
+        if typed and not cat.get("already_classified"):
+            cat = dict(already_classified=True, spectroscopic_type=typed[0]["object_type"], redshift=typed[0].get("redshift"))
+
         # 1. Check existing BTS / TNS records
         if cat.get("already_classified"):
             spec_type = cat.get("spectroscopic_type")
-            findings.append(f"Already classified in BTS as '{spec_type}' (z={cat.get('redshift')})")
+            findings.append(f"Already classified in BTS/TNS as '{spec_type}' (z={cat.get('redshift')})")
             return SpecialistAssessment(
                 role=self.role,
                 verdict_candidate="already_classified",
                 confidence=0.99,
                 key_findings=findings,
                 flags={"already_classified": True, "bts_type": spec_type},
-                concerns=["Object is already known; not an unclassified discovery."],
-                raw_data={"photometry": phot, "catalog": cat}
+                concerns=concerns + ["Object is already known; not an unclassified discovery."],
+                raw_data={"photometry": phot, "catalog": cat, "tns": tns}
             )
 
         # 2. Check data sufficiency
-        if n_det < 2:
+        if require_photometry and n_det < 2:
             concerns.append("Fewer than 2 detections inside the horizon.")
             return SpecialistAssessment(
                 role=self.role,
                 verdict_candidate="insufficient_data",
-                confidence=0.95,
+                status="unavailable",
+                confidence=0.0,
                 key_findings=findings,
                 flags={"insufficient_detections": True},
                 concerns=concerns,
@@ -60,14 +68,14 @@ class TriageSpecialist:
             )
 
         # 3. Check archival history for multi-year baseline activity
-        hist_span = hist.get("span_days") or 0.0
+        hist_span = hist.get("activity_span_days") or hist.get("span_days") or 0.0
         hist_ndet = hist.get("n_detections") or 0
         flags["archive_span_days"] = hist_span
         flags["archive_n_detections"] = hist_ndet
 
         if hist_span > 365.0:
             findings.append(f"Archival baseline shows activity across {hist_span:.0f} days ({hist_ndet} detections)")
-            concerns.append("Multi-year activity indicates persistent variable (AGN or stellar variable), not an explosive transient.")
+            concerns.append("Multi-year activity suggests variability; inspect the historical light curve before excluding a transient.")
             return SpecialistAssessment(
                 role=self.role,
                 verdict_candidate="likely_stellar_or_agn",
@@ -79,7 +87,7 @@ class TriageSpecialist:
             )
 
         # Clean transient candidate
-        findings.append(f"Clean unclassified transient candidate ({n_det} detections, no prior multi-year history)")
+        findings.append(f"No known classification found in available catalogues; {n_det} photometric detections.")
         return SpecialistAssessment(
             role=self.role,
             verdict_candidate="ordinary",
@@ -103,6 +111,8 @@ class PhotometrySpecialist:
                 verdict_candidate="insufficient_data",
                 confidence=0.1,
                 key_findings=[f"Classification failed: {cl['error']}"],
+                status="error",
+                raw_data=cl,
                 concerns=["Model could not run on object."]
             )
 
@@ -150,7 +160,8 @@ class PhotometrySpecialist:
         return SpecialistAssessment(
             role=self.role,
             verdict_candidate=cand_verdict,
-            confidence=max(0.3, conf),
+            confidence=conf,
+            confidence_kind="FLARE conformal confidence; not discovery probability",
             key_findings=findings,
             flags=flags,
             concerns=concerns,
@@ -167,9 +178,11 @@ class AnomalySpecialist:
         if "error" in anom:
             return SpecialistAssessment(
                 role=self.role,
-                verdict_candidate="ordinary",
-                confidence=0.2,
+                verdict_candidate="insufficient_data",
+                status="error",
+                confidence=0.0,
                 key_findings=[f"Anomaly alarm failed: {anom['error']}"],
+                raw_data=anom,
                 concerns=["Anomaly scorer unavailable."]
             )
 
@@ -231,9 +244,11 @@ class ContextSpecialist:
         if "error" in ctx:
             return SpecialistAssessment(
                 role=self.role,
-                verdict_candidate="ordinary",
-                confidence=0.2,
+                verdict_candidate="insufficient_data",
+                status="error",
+                confidence=0.0,
                 key_findings=[f"Context lookup failed: {ctx['error']}"],
+                raw_data=ctx,
                 concerns=["Catalogue context unavailable."]
             )
 
@@ -248,7 +263,7 @@ class ContextSpecialist:
         # 1. Gaia Galactic star check
         if flags.get("stellar_astrometry"):
             findings.append(f"Significant Gaia parallax/proper-motion (pm_over_err={gaia.get('pm_over_error')}, plx_over_err={gaia.get('parallax_over_error')})")
-            concerns.append("Confirmed Galactic star; cannot be an extragalactic supernova or TDE.")
+            concerns.append("Gaia astrometry favors a Galactic counterpart; verify the association before excluding an extragalactic transient.")
             return SpecialistAssessment(
                 role=self.role,
                 verdict_candidate="likely_stellar_or_agn",
@@ -262,23 +277,23 @@ class ContextSpecialist:
         # 2. Host offset & location
         sep = host.get("offset_arcsec")
         if flags.get("hostless"):
-            findings.append("Hostless transient (no Pan-STARRS host within search radius).")
-        elif flags.get("nuclear"):
+            findings.append("No host association supplied; this does not establish a hostless transient.")
+        elif flags.get("nuclear") and sep is not None:
             findings.append(f"Nuclear location: offset {sep:.2f} arcsec from host center.")
-        else:
+        elif sep is not None:
             findings.append(f"Host galaxy separated by {sep:.2f} arcsec (r_mag={host.get('r_mag')}).")
 
         # 3. Redshift and absolute magnitude
-        z = z_dict.get("z_phot") or z_dict.get("z_spec_host")
+        z = z_dict.get("z_phot") if z_dict.get("z_phot") is not None else z_dict.get("z_spec_host")
         m_pseudo = z_dict.get("M_pseudo")
         if z is not None:
-            findings.append(f"Redshift z={z:.3f} implies pseudo-absolute peak M_pseudo={m_pseudo:.2f} mag.")
+            findings.append(f"Redshift z={z:.3f}; pseudo-absolute peak M_pseudo={m_pseudo} mag.")
             if m_pseudo is not None and m_pseudo < -21.0:
                 findings.append("Apparent superluminous regime (M < -21).")
                 concerns.append("Pitfall warning: M_pseudo < -21 alone marks a true SLSN only 1% of the time due to photo-z catastrophic outliers.")
 
         # 4. WISE AGN Mid-IR Color
-        if flags.get("agn_mid_ir_colour"):
+        if flags.get("agn_mid_ir_colour") and wise.get("w1_w2") is not None:
             w1w2 = wise.get("w1_w2")
             findings.append(f"Mid-IR WISE color W1-W2={w1w2:.2f} > 0.8 marks AGN/QSO.")
             concerns.append("Infrared colors strongly favor active galactic nucleus.")
@@ -293,3 +308,26 @@ class ContextSpecialist:
             concerns=concerns,
             raw_data=ctx
         )
+
+
+class SpectroscopySpecialist:
+    """ASTRANet evidence, with its own taxonomy and novelty calibration."""
+    role = "spectroscopy"
+
+    def assess(self, obj_id: str) -> SpecialistAssessment:
+        from ..astranet.triage import mock_triage
+        from ..astranet import tools as S
+        report = mock_triage(obj_id, blind=True)
+        if report.verdict == "insufficient_data":
+            return SpecialistAssessment(role=self.role, status="unavailable", confidence=0,
+                verdict_candidate="insufficient_data", key_findings=[report.summary],
+                concerns=report.caveats, raw_data={"report": report.model_dump()})
+        classification = S.astranet_classify.call(dict(obj_id=obj_id))
+        novelty = S.astranet_novelty.call(dict(obj_id=obj_id))
+        return SpecialistAssessment(role=self.role, verdict_candidate=report.verdict,
+            confidence=classification.get("probability") or 0,
+            confidence_kind="ASTRANet softmax probability; not calibrated discovery probability",
+            key_findings=[e.fact for e in report.evidence], concerns=report.caveats,
+            flags=dict(predicted=report.flare_label, priority=report.priority,
+                       novelty_available=novelty.get("status") == "ok"),
+            raw_data=dict(report=report.model_dump(), classification=classification, novelty=novelty))

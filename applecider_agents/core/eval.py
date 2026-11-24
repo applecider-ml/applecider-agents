@@ -28,14 +28,21 @@ def run(model: str, name: str, n: int | None = None, mock: bool = True, out=None
     df = object_list(name, n); rows = []; blind = name in ("ood", "test")
     for r in df.itertuples():
         try:
-            rep = triage(model, r.obj_id, mock=mock, blind=blind)
+            if model in ("joint", "applecider"):
+                from ..collaboration import collaborate
+                rep = collaborate(r.obj_id, model=model, use_llm=not mock, blind=blind)
+            else:
+                rep = triage(model, r.obj_id, mock=mock, blind=blind)
             rows.append(dict(obj_id=r.obj_id, truth=r.truth, verdict=rep.verdict, priority=rep.priority, label=rep.flare_label,
-                             set="|".join(rep.prediction_set), credibility=rep.credibility, energy_pct=rep.energy_percentile, summary=rep.summary))
+                             set="|".join(rep.prediction_set), credibility=rep.credibility, energy_pct=rep.energy_percentile, summary=rep.summary,
+                             data_status=str(getattr(rep, "data_status", {}))))
         except Exception as e:
             rows.append(dict(obj_id=r.obj_id, truth=r.truth, verdict="ERROR", priority=-1, label="", set="", credibility=np.nan, energy_pct=np.nan, summary=str(e)[:200]))
         print(f"  {r.obj_id} {r.truth:<14} -> {rows[-1]['verdict']:<22} p{rows[-1]['priority']} {rows[-1]['label']}", flush=True)
     res = pd.DataFrame(rows)
-    out = out or (C.LOG_DIR / f"eval_{model}_{name}_{'rules' if mock else 'llm'}.csv"); C.LOG_DIR.mkdir(parents=True, exist_ok=True); res.to_csv(out, index=False)
+    from pathlib import Path
+    list_name = Path(name).stem
+    out = out or (C.LOG_DIR / f"eval_{model}_{list_name}_{'rules' if mock else 'llm'}.csv"); C.LOG_DIR.mkdir(parents=True, exist_ok=True); res.to_csv(out, index=False)
     print(f"\nwrote {out}")
     if name == "ood":
         flagged = res.priority >= 1

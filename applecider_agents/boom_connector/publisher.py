@@ -25,7 +25,7 @@ class BoomPublisher:
         if report.priority == 3:
             tags.append("urgent:too")
         if report.discovery_potential >= 0.8:
-            tags.append("novelty:high")
+            tags.append("followup_rank:high")
 
         return {
             "origin": "applecider-agents-connector",
@@ -33,6 +33,9 @@ class BoomPublisher:
             "verdict": report.verdict,
             "priority": report.priority,
             "discovery_potential": report.discovery_potential,
+            "score_kind": report.score_kind,
+            "data_status": report.data_status,
+            "model_results": report.model_results,
             "credibility": report.credibility,
             "flare_label": report.flare_label,
             "prediction_set": report.prediction_set,
@@ -51,7 +54,7 @@ class BoomPublisher:
         return f"""<div style="background: oklch(0.21 0.006 285.885); border: 1px solid oklch(1 0 0 / 10%); border-radius: 8px; padding: 12px; color: oklch(0.985 0 0); font-family: ui-monospace, sans-serif; font-size: 12px;">
   <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid oklch(1 0 0 / 10%); padding-bottom: 6px; margin-bottom: 8px;">
     <span style="font-weight: bold; color: #58a6ff;">[BOOM CONNECTOR] {report.obj_id}</span>
-    <span style="background: {disc_color}; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">DISCOVERY {report.discovery_potential:.2f}</span>
+    <span style="background: {disc_color}; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">FOLLOW-UP RANK {report.discovery_potential:.2f} (heuristic)</span>
   </div>
   <div style="margin-bottom: 6px;">
     <strong>Verdict:</strong> {report.verdict} (Priority {report.priority}) | <strong>Pred:</strong> {report.flare_label} {{{", ".join(report.prediction_set)}}}

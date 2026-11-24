@@ -42,6 +42,21 @@ locally on first use; light curves come from local event files when `APPLECIDER_
 otherwise from the broker archive through `flare.fetch` (BOOM when configured). No path is machine-specific,
 so the same commands run in a container or next to SkyPortal.
 
+## Joint FLARE + ASTRANet and SkyPortal connector
+
+```bash
+applecider-agents skyportal triage SOURCE_ID --model joint --detailed
+applecider-agents skyportal scan --since-days 1 --limit 20
+applecider-agents collaborate SOURCE_ID --model joint --detailed
+```
+
+See [setup, input requirements, publishing, and validation](docs/joint_workflow.md).
+The joint report keeps the two models' measurements separate, records missing data,
+and flags class disagreements. Follow-up scores are heuristic rankings, not
+probabilities of scientific discovery. `--llm` adds an advisory synthesis without
+changing model measurements or rule decisions. SkyPortal reads are enabled by
+credentials; publishing requires explicit `--post` and `FLARE_MODE=comment`.
+
 ## What the agent does in SkyPortal
 
 FLARE already runs as an analysis service (OSG plugin) and writes a classification and an annotation set

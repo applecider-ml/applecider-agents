@@ -34,6 +34,19 @@ def main(argv=None):
     bsc.add_argument("--model", default="flare")
     bsc.add_argument("--llm", action="store_true")
     bsc.add_argument("--fixture", help="Path to local broker fixture JSON for offline testing")
+    sky = sub.add_parser("skyportal", help="Read SkyPortal data and jointly analyze photometry and spectra")
+    sky_sub = sky.add_subparsers(dest="sky_cmd", required=True)
+    sky_triage = sky_sub.add_parser("triage")
+    sky_triage.add_argument("ids", nargs="+")
+    sky_triage.add_argument("--detailed", action="store_true")
+    sky_triage.add_argument("--post", action="store_true", help="Publish via FLARE_MODE gate (default dry-run)")
+    sky_scan = sky_sub.add_parser("scan")
+    sky_scan.add_argument("--since-days", type=float, default=1.0)
+    sky_scan.add_argument("--limit", type=int, default=20)
+    for parser in (sky_triage, sky_scan):
+        parser.add_argument("--model", choices=["flare", "astranet", "joint"], default="joint")
+        parser.add_argument("--horizon", type=float, default=100.0)
+        parser.add_argument("--llm", action="store_true", help="Add an advisory LLM review to measured evidence")
     a = ap.parse_args(argv)
     if a.cmd == "triage":
         from .core.loop import triage
@@ -69,6 +82,25 @@ def main(argv=None):
         print(f"{len(srcs)} sources saved since {since} (cap {a.cap}), mode {C.MODE}")
         for s in srcs:
             rep = triage(a.model, s["id"], mock=not a.llm); print(rep.comment()); print(" ->", publish(rep))
+    elif a.cmd == "skyportal":
+        from .core.skyportal_client import SkyPortal, publish
+        from .skyportal_connector import investigate, scan
+        if a.horizon <= 0:
+            ap.error("--horizon must be positive")
+        client = SkyPortal()
+        if a.sky_cmd == "triage":
+            for oid in a.ids:
+                report = investigate(oid, client=client, model=a.model, horizon_days=a.horizon, use_llm=a.llm)
+                print(report.detailed_summary() if a.detailed else report.model_dump_json(indent=2))
+                if a.post:
+                    print("PUBLISH:", publish(report, client=client))
+        else:
+            if a.since_days <= 0 or a.limit <= 0:
+                ap.error("--since-days and --limit must be positive")
+            since = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=a.since_days)).isoformat()
+            result = scan(since, client=client, group_ids=C.SKYPORTAL_GROUP_IDS, limit=a.limit,
+                          model=a.model, horizon_days=a.horizon, use_llm=a.llm)
+            print(json.dumps(result, indent=2))
     elif a.cmd == "boom-connector":
         from .boom_connector import BoomConnectorClient, adapt_boom_object, BoomScanner, BoomPublisher
         from .collaboration import collaborate

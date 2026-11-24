@@ -76,7 +76,7 @@ def test_boom_publisher_annotation_and_ui_card():
 
     card_html = publisher.render_boom_tile_card(report)
     assert "[BOOM CONNECTOR]" in card_html
-    assert "DISCOVERY" in card_html
+    assert "FOLLOW-UP RANK" in card_html
     assert "oklch" in card_html
 
 

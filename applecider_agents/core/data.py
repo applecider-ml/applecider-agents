@@ -9,6 +9,7 @@ Everything returned is plain Python so it can go into a tool result.
 """
 from __future__ import annotations
 import urllib.request
+import sys
 from functools import lru_cache
 from pathlib import Path
 import numpy as np, pandas as pd
@@ -18,12 +19,21 @@ from flare.config import HOST_COLS, GW_COLS, POS_COLS
 
 TABLES = {"hosts.csv": HOST_COLS, "hosts_photoz.csv": ["z_phot", "z_spec"], "context_gaia_wise.csv": GW_COLS, "ps1_position.csv": POS_COLS}
 _SEEDED: dict = {}
+_SEED_METADATA: dict = {}
 
 
-def seed(obj_id: str, events_array, context: dict) -> None:
+def seed(obj_id: str, events_array, context: dict, *, metadata: dict | None = None) -> None:
     """Photometry and context supplied by the caller (e.g. the FLARE SkyPortal service, which
     already holds them) to be used for obj_id instead of a fetch."""
     _SEEDED[obj_id] = (np.asarray(events_array), dict(context))
+    _SEED_METADATA[obj_id] = dict(metadata or {})
+    # A new alert/snapshot must not reuse features from an older light curve.
+    module = sys.modules.get("applecider_agents.flare.tools")
+    if module is not None:
+        for cache in (module._CACHE, module._RESULTS):
+            for key in list(cache):
+                if key[0] == obj_id:
+                    del cache[key]
 
 
 def benchmark_file(name: str) -> Path | None:
@@ -82,6 +92,8 @@ def _sex(v, is_ra):
 
 
 def coords(obj_id: str):
+    if "coordinates" in _SEED_METADATA.get(obj_id, {}):
+        return _SEED_METADATA[obj_id]["coordinates"]
     cat = _catalog()
     if cat is not None and obj_id in cat.index:
         r = cat.loc[obj_id]; return _sex(r.RA, True), _sex(r.Dec, False)
@@ -90,6 +102,8 @@ def coords(obj_id: str):
 
 
 def catalog_row(obj_id: str) -> dict:
+    if "catalog" in _SEED_METADATA.get(obj_id, {}):
+        return _SEED_METADATA[obj_id]["catalog"]
     cat = _catalog()
     if cat is None or obj_id not in cat.index:
         return {}
@@ -132,6 +146,16 @@ def context(obj_id: str, peak_mag: float | None = None, live: bool = True) -> di
 def history(obj_id: str) -> dict:
     """The object's full photometric history from the broker archive (not truncated):
     detections, first and last epoch, activity span in days, per-band counts."""
+    if "photometry_rows" in _SEED_METADATA.get(obj_id, {}):
+        rows = _SEED_METADATA[obj_id]["photometry_rows"]
+        if not rows:
+            return dict(found=False, source="provided")
+        times = np.asarray([r[0] for r in rows], dtype=float)
+        bands = np.asarray([r[1] for r in rows], dtype=int)
+        return dict(found=True, source="provided", n_detections=len(rows),
+                    first_mjd=float(times.min()), last_mjd=float(times.max()),
+                    activity_span_days=float(times.max() - times.min()),
+                    n_per_band={b: int((bands == k).sum()) for k, b in ((1, "g"), (2, "r"), (3, "i"))})
     rows = None
     try:
         from flare.fetch import fetch_photometry

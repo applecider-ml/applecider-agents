@@ -59,7 +59,7 @@ def get_context(obj_id: str) -> dict:
                    gaia=dict(point_source_within_2arcsec=g("gaia_sep") is not None, G=_f(g("gaia_g"), 2), parallax_over_error=_f(g("parallax_over_error"), 1), pm_over_error=_f(g("pm_over_error"), 1), ruwe=_f(g("ruwe"), 2)),
                    wise=dict(match_within_6arcsec=g("wise_sep") is not None, w1_w2=_f(g("w1w2"), 2)),
                    ps1_counterpart=dict(within_1p5arcsec=g("pos_sep") is not None, r_mag=_f(g("pos_r"), 2), point_like=(g("pos_star") == 1.0) if g("pos_star") is not None else None, n_detections=_f(g("pos_ndet"), 0)))
-        out["flags"] = dict(hostless=g("host_sep") is None, nuclear=(g("host_sep") is not None and g("host_sep") < 0.5),
+        out["flags"] = dict(hostless=None if ctx.get("_context_missing") else g("host_sep") is None, nuclear=(g("host_sep") is not None and g("host_sep") < 0.5),
                             offset_from_host_gt_10arcsec=(g("host_sep") is not None and g("host_sep") > 10),
                             stellar_astrometry=bool((g("parallax_over_error") or 0) > 3 or (g("pm_over_error") or 0) > 3),
                             agn_mid_ir_colour=bool((g("w1w2") or -9) > 0.8),

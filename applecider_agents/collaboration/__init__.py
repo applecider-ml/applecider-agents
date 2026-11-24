@@ -1,6 +1,6 @@
 """Multi-Agent collaborative investigation and transient discovery for AppleCiDEr."""
 from .schemas import SpecialistAssessment, DebateMessage, DiscoveryReport
-from .specialists import TriageSpecialist, PhotometrySpecialist, AnomalySpecialist, ContextSpecialist
+from .specialists import TriageSpecialist, PhotometrySpecialist, AnomalySpecialist, ContextSpecialist, SpectroscopySpecialist
 from .lead_scientist import LeadScientist
 from .workflow import collaborate
 
@@ -12,6 +12,7 @@ __all__ = [
     "PhotometrySpecialist",
     "AnomalySpecialist",
     "ContextSpecialist",
+    "SpectroscopySpecialist",
     "LeadScientist",
     "collaborate"
 ]

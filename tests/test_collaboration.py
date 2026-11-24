@@ -59,7 +59,7 @@ def test_collaborate_workflow_and_summary():
 
     # Ensure compatibility with SkyPortal comment
     cmt = report.comment()
-    assert cmt.startswith("[FLARE]")
+    assert cmt.startswith("[AppleCiDEr]")
 
     # Check detailed multi-agent summary rendering
     det = report.detailed_summary()
