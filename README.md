@@ -16,7 +16,7 @@ applecider_agents/
                   loop.py (Claude tool-use loop), mcp.py (one server, all models), skyportal_client.py, eval.py, registry.py
   collaboration/  Multi-agent investigation & debate (TriageSpecialist, PhotometrySpecialist,
                   AnomalySpecialist, ContextSpecialist, and LeadScientist debate reconciliation)
-  boom_connector/ Adapter and scanner for the BOOM alert broker (ZTF & Rubin collections,
+  boom_connector/ Adapter and scanner for the BOOM alert broker (ZTF alert collections,
                   pre-staged crossmatches, discovery leaderboards, and UI card export)
   flare/          tools.py (flare_classify, flare_anomaly, flare_analyze_photometry), triage.py (reading guide + rule verdict)
   astranet/       tools.py (get_spectra, astranet_classify, astranet_novelty), triage.py (reading guide + rule verdict)
