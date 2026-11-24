@@ -1,6 +1,6 @@
 """Runs without an API key and without network. Needs the astranet package, its twelve
 checkpoints (ASTRANET_MODELS) and, for the novelty assertions, the novelty bundle
-(ASTRANET_NOVELTY or <models>/novelty_v1.joblib). The spectrum is synthetic, so the test checks
+(ASTRANET_NOVELTY or <models>/novelty.joblib). The spectrum is synthetic, so the test checks
 the plumbing (tools, verdict, MCP), not the science."""
 import asyncio, json, os, tempfile
 from pathlib import Path
