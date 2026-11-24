@@ -12,10 +12,12 @@ gets posted where. **Every number in a report comes from a tool call; the langua
 
 ```
 applecider_agents/
-  core/      report.py (typed Report), object_tools.py (photometry, context, full history, BTS, TNS),
-             loop.py (Claude tool-use loop), mcp.py (one server, all models), skyportal_client.py, eval.py, registry.py
-  flare/     tools.py (flare_classify, flare_anomaly, flare_analyze_photometry), triage.py (reading guide + rule verdict)
-  astranet/  (next) get_spectrum via SkyPortal, astranet_classify, conformal set, spectral anomaly
+  core/           report.py (typed Report), object_tools.py (photometry, context, full history, BTS, TNS),
+                  loop.py (Claude tool-use loop), mcp.py (one server, all models), skyportal_client.py, eval.py, registry.py
+  collaboration/  Multi-agent investigation & debate (TriageSpecialist, PhotometrySpecialist,
+                  AnomalySpecialist, ContextSpecialist, and LeadScientist debate reconciliation)
+  flare/          tools.py (flare_classify, flare_anomaly, flare_analyze_photometry), triage.py (reading guide + rule verdict)
+  astranet/       (next) get_spectrum via SkyPortal, astranet_classify, conformal set, spectral anomaly
 ```
 
 ## Install and run
@@ -24,6 +26,7 @@ applecider_agents/
 pip install "applecider-agents[flare,mcp]"      # flare-transients[skyportal] + the MCP SDK
 applecider-agents triage ZTF22aazcdan            # rule-based verdict, no LLM, works anywhere
 applecider-agents triage ZTF22aazcdan --llm      # Claude loop over the same tools (ANTHROPIC_API_KEY)
+applecider-agents collaborate ZTF22aazcdan --detailed # Multi-agent specialist debate & discovery report
 applecider-agents mcp --transport streamable-http --port 8765 --models flare
 applecider-agents eval --model flare --list ood  # the benchmark's out-of-taxonomy hold-out, run blind (no catalogue tools)
 ```
