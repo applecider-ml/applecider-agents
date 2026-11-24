@@ -5,6 +5,11 @@ the plumbing (tools, verdict, MCP), not the science."""
 import asyncio, json, os, tempfile
 from pathlib import Path
 import numpy as np
+import pytest
+
+pytest.importorskip("astranet", reason="the astranet package and its checkpoints are needed")
+if not os.environ.get("ASTRANET_MODELS"):
+    pytest.skip("ASTRANET_MODELS is not set", allow_module_level=True)
 
 OBJ = "TESTobj"
 TMP = Path(tempfile.mkdtemp())

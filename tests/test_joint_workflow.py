@@ -244,3 +244,31 @@ def test_spectral_class_challenges_stellar_crossmatch(outputs):
     assert report.verdict == "ambiguous"
     assert report.priority >= 2
     assert any("Gaia" in issue for issue in report.provenance["issues_for_review"])
+
+
+def test_alarm_dict_all_false_is_ordinary(outputs):
+    # the shape flare_anomaly really returns: one boolean per rate
+    outputs["flare_anomaly"]["alarms"] = {"1%": False, "5%": False, "10%": False}
+    report = collaborate("X", model="flare")
+    assert report.verdict == "ordinary" and report.priority < 2
+    assert report.specialist_assessments["anomaly"].flags["alarms"] == []
+
+
+def test_alarm_dict_one_percent_fires(outputs):
+    outputs["flare_anomaly"]["alarms"] = {"1%": True, "5%": True, "10%": True}
+    report = collaborate("X", model="flare")
+    assert report.verdict == "anomaly_review" and report.priority == 3
+
+
+def test_alarm_dict_five_percent_is_moderate(outputs):
+    outputs["flare_anomaly"]["alarms"] = {"1%": False, "5%": True, "10%": True}
+    report = collaborate("X", model="flare")
+    assert report.verdict == "anomaly_review" and report.priority == 2
+    assert "1%" not in report.scientific_hypothesis
+
+
+def test_uncalibrated_alarm_is_withheld(outputs):
+    outputs["flare_anomaly"].update(alarms={"1%": True, "5%": True, "10%": True}, calibrated=False)
+    report = collaborate("X", model="flare")
+    assert report.verdict == "ordinary"
+    assert any("uncalibrated" in c for c in report.caveats)
