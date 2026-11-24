@@ -37,9 +37,12 @@ def triage(model: str, obj_id: str, horizon_days: float = 100.0, mock: bool = Fa
     if C.FALLBACKS:
         kw.update(betas=["server-side-fallback-2026-07-01"], fallbacks="default")
     runner = client.beta.messages.tool_runner(**kw)
-    calls, usage = [], dict(input=0, output=0)
+    calls, usage, served = [], dict(input=0, output=0, cache_read=0, cache_write=0), set()
     for message in runner:
-        usage["input"] += message.usage.input_tokens; usage["output"] += message.usage.output_tokens
+        u = message.usage; served.add(getattr(message, "model", None))
+        usage["input"] += u.input_tokens; usage["output"] += u.output_tokens
+        usage["cache_read"] += getattr(u, "cache_read_input_tokens", 0) or 0
+        usage["cache_write"] += getattr(u, "cache_creation_input_tokens", 0) or 0
         for b in message.content:
             if getattr(b, "type", "") == "tool_use":
                 calls.append(dict(tool=b.name, input=b.input))
@@ -50,5 +53,5 @@ def triage(model: str, obj_id: str, horizon_days: float = 100.0, mock: bool = Fa
     if rep is None:
         text = " ".join(getattr(b, "text", "") for b in final.content)
         raise RuntimeError(f"no structured Report returned (stop_reason={final.stop_reason}); text: {text[:500]}")
-    _log(dict(model=model, obj_id=obj_id, mode="llm", llm=C.MODEL, effort=C.EFFORT, seconds=round(time.time() - t0, 1), usage=usage, tool_calls=calls, report=rep.model_dump()))
+    _log(dict(model=model, obj_id=obj_id, mode="llm", llm=C.MODEL, served_by=sorted(m for m in served if m), effort=C.EFFORT, seconds=round(time.time() - t0, 1), usage=usage, tool_calls=calls, report=rep.model_dump()))
     return rep

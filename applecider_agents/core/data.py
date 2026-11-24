@@ -20,13 +20,19 @@ from flare.config import HOST_COLS, GW_COLS, POS_COLS
 TABLES = {"hosts.csv": HOST_COLS, "hosts_photoz.csv": ["z_phot", "z_spec"], "context_gaia_wise.csv": GW_COLS, "ps1_position.csv": POS_COLS}
 _SEEDED: dict = {}
 _SEED_METADATA: dict = {}
+_SEEDED_HISTORY: dict = {}
 
 
-def seed(obj_id: str, events_array, context: dict, *, metadata: dict | None = None) -> None:
+def seed(obj_id: str, events_array, context: dict, *, metadata: dict | None = None, history: dict | None = None) -> None:
     """Photometry and context supplied by the caller (e.g. the FLARE SkyPortal service, which
-    already holds them) to be used for obj_id instead of a fetch."""
+    already holds them) to be used for obj_id instead of a fetch. history, when given, is
+    returned by `history` as is (no archive query; used by the anonymised evaluation)."""
     _SEEDED[obj_id] = (np.asarray(events_array), dict(context))
     _SEED_METADATA[obj_id] = dict(metadata or {})
+    if history is not None:
+        _SEEDED_HISTORY[obj_id] = dict(history)
+    else:
+        _SEEDED_HISTORY.pop(obj_id, None)
     # A new alert/snapshot must not reuse features from an older light curve.
     module = sys.modules.get("applecider_agents.flare.tools")
     if module is not None:
@@ -146,6 +152,8 @@ def context(obj_id: str, peak_mag: float | None = None, live: bool = True) -> di
 def history(obj_id: str) -> dict:
     """The object's full photometric history from the broker archive (not truncated):
     detections, first and last epoch, activity span in days, per-band counts."""
+    if obj_id in _SEEDED_HISTORY:
+        return dict(_SEEDED_HISTORY[obj_id])
     if "photometry_rows" in _SEED_METADATA.get(obj_id, {}):
         rows = _SEED_METADATA[obj_id]["photometry_rows"]
         if not rows:
