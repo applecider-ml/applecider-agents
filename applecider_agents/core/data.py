@@ -164,6 +164,14 @@ def history(obj_id: str) -> dict:
                     first_mjd=float(times.min()), last_mjd=float(times.max()),
                     activity_span_days=float(times.max() - times.min()),
                     n_per_band={b: int((bands == k).sum()) for k, b in ((1, "g"), (2, "r"), (3, "i"))})
+    p = local_event_path(obj_id)
+    if p is not None:
+        ev = D.load_events(str(p))
+        t = ev[:, D.COL["dt"]]
+        fid = ev[:, D.COL["band_id"]].astype(int)
+        return dict(found=True, n_detections=int(len(ev)), first_mjd=0.0, last_mjd=round(float(t.max()), 3),
+                    activity_span_days=round(float(t.max() - t.min()), 1),
+                    n_per_band={b: int((fid == k).sum()) for k, b in ((0, "g"), (1, "r"), (2, "i"))})
     rows = None
     try:
         from flare.fetch import fetch_photometry
@@ -171,14 +179,6 @@ def history(obj_id: str) -> dict:
     except Exception:
         pass
     if not rows:
-        p = local_event_path(obj_id)
-        if p is not None:
-            ev = D.load_events(str(p))
-            t = ev[:, D.COL["dt"]]
-            fid = ev[:, D.COL["band_id"]].astype(int)
-            return dict(found=True, n_detections=int(len(ev)), first_mjd=0.0, last_mjd=round(float(t.max()), 3),
-                        activity_span_days=round(float(t.max() - t.min()), 1),
-                        n_per_band={b: int((fid == k).sum()) for k, b in ((0, "g"), (1, "r"), (2, "i"))})
         return dict(found=False)
     mjd = np.array([r[0] for r in rows], float); fid = np.array([int(r[1]) for r in rows])
     return dict(found=True, n_detections=int(len(rows)), first_mjd=round(float(mjd.min()), 3), last_mjd=round(float(mjd.max()), 3),
